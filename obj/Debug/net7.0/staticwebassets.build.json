@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "kv19qQkBZWatqaaKChD4gdHjYQ1jT5vayDWKfbmpv2M=",
+  "Source": "PillPallAPI",
+  "BasePath": "_content/PillPallAPI",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
