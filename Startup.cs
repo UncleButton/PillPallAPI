@@ -10,7 +10,7 @@ public class Startup
         services.AddAuthorization();
 
         services.AddDbContext<MyDbContext>(options =>
-            options.UseSqlite("Data Source=/home/pillpal/Database/PillPallDB"));
+            options.UseSqlite("Data Source=C:/Databases/PillPallDB"));
 
         services.AddControllers();
 

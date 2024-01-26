@@ -17,7 +17,13 @@ public class UserController : ControllerBase
     [Route("getUser")]
     public IActionResult GetUser([FromBody] User userToGet)
     {
-        var entities = _dbContext.Users.Where(entity => entity.PIN == userToGet.PIN).ToList();
+        var entities = new User(){Name = "not set"};
+
+        if(userToGet.Id!=0)
+            entities = _dbContext.Users.Where(entity => entity.Id == userToGet.Id).ToList().First();
+        if(!string.IsNullOrEmpty(userToGet.Name))
+            entities = _dbContext.Users.Where(entity => entity.Name == userToGet.Name).ToList().First();
+
         return Ok(entities);
     }
 
@@ -28,7 +34,6 @@ public class UserController : ControllerBase
         _dbContext.Users.Add(newUser);
         await _dbContext.SaveChangesAsync();
 
-        var entities = _dbContext.Users.Where(entity => entity.Id == 1).ToList();
-        return Ok(entities);
+        return Ok();
     }
 }

@@ -11,6 +11,7 @@
 *.sln.docstates
 bin
 obj
+packages
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -477,3 +478,5 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+bin/*
+obj/*
