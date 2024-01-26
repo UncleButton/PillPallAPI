@@ -13,10 +13,5 @@ public class PillInformationController : ControllerBase
         _dbContext = dbContext;
     }
 
-    [HttpGet(Name = "GetPillInformation")]
-    public IActionResult Get()
-    {
-        var entities = _dbContext.Users.ToList();
-        return Ok(entities);
-    }
+    
 }

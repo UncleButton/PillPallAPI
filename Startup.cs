@@ -28,6 +28,15 @@ public class Startup
                 Version = "v1"
             });
         });
+
+        services.AddCors(options =>
+        {
+            options.AddPolicy("AllowAnyOrigin",
+                builder => builder
+                    .AllowAnyOrigin()
+                    .AllowAnyHeader()
+                    .AllowAnyMethod());
+        });
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
@@ -37,6 +46,8 @@ public class Startup
             context.Request.Scheme = "https";
             return next();
         });
+
+        app.UseCors("AllowAnyOrigin");
 
         app.UseHttpsRedirection();
         app.UseStaticFiles();
@@ -65,6 +76,8 @@ public class Startup
         {
             endpoints.MapControllers();
         });
+
+        
 
     }
 
