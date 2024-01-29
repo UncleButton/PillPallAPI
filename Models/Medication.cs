@@ -11,7 +11,7 @@ public class Medication
     public required string Name {get; set;}
     public string? Description {get; set;}
     public required int NumPills {get;set;}
-    public required DateTime ExpirationDate {get;set;}
+    public required string ExpirationDate {get;set;}
     public int? PIN { get; set; }
 
     //dosage info
