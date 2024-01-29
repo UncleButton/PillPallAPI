@@ -28,6 +28,15 @@ public class UserController : ControllerBase
     }
 
     [HttpPost]
+    [Route("getUsers")]
+    public IActionResult GetUsers()
+    {
+        var users = _dbContext.Users;
+
+        return Ok(users);
+    }
+
+    [HttpPost]
     [Route("newUser")]
     public async Task<IActionResult> NewUser([FromBody] User newUser)
     {
