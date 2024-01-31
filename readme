@@ -1,0 +1,12 @@
+whats up yall
+
+To run the API run the following commands:
+    dotnet clean (probably not necessary every time)
+    dotnet build
+    dotnet run
+
+If the ouptut looks good (no errors or anything), the API can be reached at http://localhost:5218
+
+To test endpoints without running the front end, with the API running, you can visit http://localhost:5218/swagger
+
+IF YOU HAVE ANY QUESTIONS, PLEASE ASK ME (BRITTON BAILER) BEFORE CHANGING ANYTHING

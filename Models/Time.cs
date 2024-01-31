@@ -7,5 +7,5 @@ public class Time
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int Id { get; set; }
 
-    public required DateTime DateTime { get; set; }
+    public required string DateTime { get; set; }
 }
