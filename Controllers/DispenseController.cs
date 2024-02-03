@@ -60,5 +60,25 @@ public class DispenseController : ControllerBase
 
         return Ok();
     }
-    
+
+    // This is the code the arduino had at the time of success...
+
+    // void setup() {
+    //   Serial.begin(9600);
+
+    // }
+
+    // void loop() {
+    //   if (Serial.available())
+    //   {
+    //     int num = Serial.read()
+    //     // String str = Serial.readStringUntil(' ');
+    //     Serial.println(str);
+    //     // if (str == "5")
+    //     //   Serial.println("Message DOUBLE received");
+    //   }
+    //   // Serial.println("Talking from Arduino");
+    //   delay(1000);
+    // }
+
 }
