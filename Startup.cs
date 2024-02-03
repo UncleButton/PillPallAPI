@@ -5,12 +5,14 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 
 public class Startup
 {
+    private string WindowsDB = "Data Source=C:/Databases/PillPallDB";
+    private string PiDB = "Data Source=/home/pillpal/Database/PillPallDB";
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddAuthorization();
 
         services.AddDbContext<MyDbContext>(options =>
-            options.UseSqlite("Data Source=C:/Databases/PillPallDB"));
+            options.UseSqlite(PiDB));
 
         services.AddControllers();
 

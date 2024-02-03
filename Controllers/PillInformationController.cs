@@ -25,7 +25,11 @@ public class PillInformationController : ControllerBase
             .Select(group => group.OrderByDescending(entity => entity.Id).First()) // Select the highest from each group
             .Select(entity => entity.MedId);
 
+            Console.WriteLine("current med IDs " + currentMedIds.Count());
+
         var meds = _dbContext.Medications.Where(meds => currentMedIds.Contains(meds.Id) && meds.NumPills > 0).ToList();
+
+        Console.WriteLine(meds.Count());
 
         return Ok(meds);
     }
