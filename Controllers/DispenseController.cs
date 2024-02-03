@@ -24,11 +24,11 @@ public class DispenseController : ControllerBase
         //JUSTIN'S AREA
 
         //PUT LOGIC HERE THAT DOES THE ACTUAL DISPENSING/USES YOUR DEVICE CONTROLLERS
-        
+
        SerialPort sp = new SerialPort("COM7", 9600, Parity.None, 8, StopBits.One);
 
             // Set the read timeout to 500 ms
-            sp.ReadTimeout = 500;
+            sp.ReadTimeout = 5000;
 
             // Open the port
             sp.Open();
@@ -40,11 +40,14 @@ public class DispenseController : ControllerBase
             {
                 try
                 {
+                    Console.WriteLine("Trying to Read...");
                     // Read a line of data
+                    sp.WriteLine("5");
                     string data = sp.ReadLine();
 
                     // Display the data
                     Console.WriteLine(data);
+
                 }
                 catch (TimeoutException)
                 {
