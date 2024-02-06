@@ -1,5 +1,7 @@
 //Britton Bailer, January 2024
 
+using System.Net;
+using System.Net.Mail;
 using Microsoft.AspNetCore.Mvc;
 
 namespace PillPallAPI.Controllers;
@@ -19,6 +21,8 @@ public class ScheduleController : ControllerBase
     [Route("getSchedules")]
     public IActionResult GetSchedules()
     {        
+        //messageMe();
+        
         var schedules = _dbContext.Schedules;
         var scheduleResponses = new List<ScheduleResponse>();
 
@@ -42,6 +46,24 @@ public class ScheduleController : ControllerBase
         Console.WriteLine(scheduleResponses.Count);
 
         return Ok(scheduleResponses);
+    }
+
+    private void messageMe(){
+        var message = new MailMessage();
+        message.From = new MailAddress("pillpalmachine@outlook.com");
+
+        message.To.Add(new MailAddress("4407592699@tmomail.net"));
+
+        //message.Subject = "This is my subject";
+        message.Body = "this is the content";
+
+        var client = new SmtpClient("smtp-mail.outlook.com", 587)
+            {
+                Credentials = new NetworkCredential("pillpalmachine@outlook.com", "sxouibditeeflwup"),
+                EnableSsl = true
+            };
+        client.Send(message);
+
     }
     
 }
