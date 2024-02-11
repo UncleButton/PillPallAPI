@@ -24,28 +24,54 @@ public class ScheduleController : ControllerBase
         //messageMe();
         
         var schedules = _dbContext.Schedules;
-        var scheduleResponses = new List<ScheduleResponse>();
+        var scheduleBuses = new List<ScheduleBus>();
 
         foreach(Schedule schedule in schedules){
-            var scheduleResponse = new ScheduleResponse();
+            var scheduleBus = new ScheduleBus();
 
-            scheduleResponse.Id = schedule.Id;
-            scheduleResponse.UserId = schedule.UserId;
+            scheduleBus.UserId = schedule.UserId;
+            scheduleBus.Name = schedule.Name;
+            scheduleBus.PIN = schedule.PIN;
 
             var scheduleMeds = _dbContext.ScheduleMeds.Where(entity => entity.ScheduleId == schedule.Id).ToList();
-            scheduleResponse.ScheduleMeds = scheduleMeds;
+            scheduleBus.ScheduleMeds = scheduleMeds;
 
-            var timeIds = _dbContext.ScheduleTimes.Where(entity => entity.ScheduleId == schedule.Id).Select(entity => entity.TimeId);
+            var timeIds = _dbContext.ScheduleTimes.Where(entity => entity.ScheduleId == schedule.Id).Select(entity => entity.TimeId).ToList();
             var times = _dbContext.Times.Where(entity => timeIds.Contains(entity.Id)).ToList();
 
-            scheduleResponse.Times = times;
+            scheduleBus.Times = times;
 
-            scheduleResponses.Add(scheduleResponse);
+            scheduleBuses.Add(scheduleBus);
         }
 
-        Console.WriteLine(scheduleResponses.Count);
+        Console.WriteLine("Schedules: " + scheduleBuses.Count);
 
-        return Ok(scheduleResponses);
+        return Ok(scheduleBuses);
+    }
+
+    [HttpPost]
+    [Route("saveSchedule")]
+    public async Task<IActionResult> SaveSchedule([FromBody] ScheduleBus newSchedule)
+    {     
+        //schedule is new
+        if(newSchedule.Id == -1){
+            var schedule = new Schedule(){
+                UserId = newSchedule.UserId,
+                Name = newSchedule.Name,
+                PIN = newSchedule.PIN
+            };
+            _dbContext.Schedules.Add(schedule);
+
+            _dbContext.Times.AddRange(newSchedule.Times);
+            _dbContext.ScheduleMeds.AddRange(newSchedule.ScheduleMeds);
+        }
+        else //schedule is being edited
+        {
+            //to-do
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return Ok();
     }
 
     private void messageMe(){

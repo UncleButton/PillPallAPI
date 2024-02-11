@@ -10,8 +10,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace PillPallAPI.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    [Migration("20240124021453_testMigration")]
-    partial class testMigration
+    [Migration("20240206221136_Add name field to Schedule table")]
+    partial class AddnamefieldtoScheduletable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -79,7 +79,8 @@ namespace PillPallAPI.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("ExpirationDate")
+                    b.Property<string>("ExpirationDate")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("MaxDosesPerDay")
@@ -133,6 +134,10 @@ namespace PillPallAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("UserId")
                         .HasColumnType("INTEGER");
 
@@ -184,7 +189,8 @@ namespace PillPallAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("DateTime")
+                    b.Property<string>("DateTime")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -194,12 +200,11 @@ namespace PillPallAPI.Migrations
 
             modelBuilder.Entity("User", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int?>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("PIN")

@@ -19,15 +19,13 @@ public class PillInformationController : ControllerBase
     [Route("getAllContainers")]
     public IActionResult GetCurrentMedication()
     {        
-        var containersIds = _dbContext.Containers.Select(container => container.Id).ToList();
-
         var currentMedIds = _dbContext.ContainerMedMaps.GroupBy(entity => entity.ContainerId) // Group by ContainerId
             .Select(group => group.OrderByDescending(entity => entity.Id).First()) // Select the highest from each group
             .Select(entity => entity.MedId);
 
-            Console.WriteLine("current med IDs " + currentMedIds.Count());
+        Console.WriteLine("current med IDs " + currentMedIds.Count());
 
-        var meds = _dbContext.Medications.Where(meds => currentMedIds.Contains(meds.Id) && meds.NumPills > 0).ToList();
+        var meds = _dbContext.Medications.Where(meds => currentMedIds.Contains(meds.Id) && meds.NumPills > 0);
 
         Console.WriteLine(meds.Count());
 
@@ -43,10 +41,11 @@ public class PillInformationController : ControllerBase
         //medication is new
         if(newMedication.Id == -1){
             var containersIds = _dbContext.Containers.Select(container => container.Id).ToList();
+            Console.WriteLine("containers count: " + containersIds.Count());
 
             var currentMedIds = _dbContext.ContainerMedMaps.GroupBy(entity => entity.ContainerId) // Group by ContainerId
                 .Select(group => group.OrderByDescending(entity => entity.Id).First()) // Select the highest from each group
-                .Select(entity => entity.MedId);
+                .Select(entity => entity.MedId).ToList();
 
             var nonZeroMedIds = _dbContext.Medications.Where(meds => currentMedIds.Contains(meds.Id) && meds.NumPills > 0).ToList().Select(entity => entity.Id);
 
@@ -54,7 +53,9 @@ public class PillInformationController : ControllerBase
 
             var containersNotInUse = _dbContext.Containers.Where(entity => !containersInUse.Contains(entity.Id)).Select(entity => entity.Id);
 
-            var newLargestMedId = _dbContext.Medications.OrderByDescending(entity => entity.Id).First().Id;
+            var largestMed = _dbContext.Medications.OrderByDescending(entity => entity.Id).FirstOrDefault();
+
+            var newLargestMedId = largestMed == null ? 0 : largestMed.Id;
 
             newLargestMedId++;
 

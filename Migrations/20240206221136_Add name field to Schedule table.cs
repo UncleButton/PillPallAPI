@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace PillPallAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class testMigration : Migration
+    public partial class AddnamefieldtoScheduletable : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -62,7 +62,7 @@ namespace PillPallAPI.Migrations
                     Name = table.Column<string>(type: "TEXT", nullable: false),
                     Description = table.Column<string>(type: "TEXT", nullable: true),
                     NumPills = table.Column<int>(type: "INTEGER", nullable: false),
-                    ExpirationDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ExpirationDate = table.Column<string>(type: "TEXT", nullable: false),
                     PIN = table.Column<int>(type: "INTEGER", nullable: true),
                     MaxPillsPerDose = table.Column<int>(type: "INTEGER", nullable: true),
                     MaxDosesPerDay = table.Column<int>(type: "INTEGER", nullable: true),
@@ -101,7 +101,8 @@ namespace PillPallAPI.Migrations
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    UserId = table.Column<int>(type: "INTEGER", nullable: false)
+                    UserId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -128,7 +129,7 @@ namespace PillPallAPI.Migrations
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    DateTime = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    DateTime = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -141,7 +142,7 @@ namespace PillPallAPI.Migrations
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", nullable: true),
                     PIN = table.Column<int>(type: "INTEGER", nullable: true)
                 },
                 constraints: table =>
