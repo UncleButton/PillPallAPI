@@ -8,4 +8,8 @@ public class Time
     public int Id { get; set; }
 
     public required string DateTime { get; set; }
+
+    public int ScheduleId {get; set;}
+    
+    public Schedule Schedule { get; set; }
 }

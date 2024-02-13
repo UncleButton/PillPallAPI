@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -9,9 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace PillPallAPI.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    partial class MyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240212220009_Testing out a new way to tie tables together")]
+    partial class Testingoutanewwaytotietablestogether
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.0");
@@ -127,7 +130,7 @@ namespace PillPallAPI.Migrations
 
             modelBuilder.Entity("Schedule", b =>
                 {
-                    b.Property<int?>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
@@ -148,24 +151,65 @@ namespace PillPallAPI.Migrations
 
             modelBuilder.Entity("ScheduleMed", b =>
                 {
-                    b.Property<int>("ScheduleId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("MedicationId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MedId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("NumPills")
                         .HasColumnType("INTEGER");
 
-                    b.HasKey("ScheduleId", "MedicationId");
+                    b.Property<int>("ScheduleId")
+                        .HasColumnType("INTEGER");
 
-                    b.HasIndex("MedicationId");
+                    b.Property<int?>("TestScheduleId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TestScheduleId");
 
                     b.ToTable("ScheduleMeds");
+                });
+
+            modelBuilder.Entity("ScheduleTime", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ScheduleId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TimeId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ScheduleTimes");
+                });
+
+            modelBuilder.Entity("TestSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PIN")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TestSchedules");
                 });
 
             modelBuilder.Entity("Time", b =>
@@ -178,12 +222,12 @@ namespace PillPallAPI.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("ScheduleId")
+                    b.Property<int?>("TestScheduleId")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ScheduleId");
+                    b.HasIndex("TestScheduleId");
 
                     b.ToTable("Times");
                 });
@@ -207,40 +251,19 @@ namespace PillPallAPI.Migrations
 
             modelBuilder.Entity("ScheduleMed", b =>
                 {
-                    b.HasOne("Medication", "Medication")
+                    b.HasOne("TestSchedule", null)
                         .WithMany("ScheduleMeds")
-                        .HasForeignKey("MedicationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Schedule", "Schedule")
-                        .WithMany("ScheduleMeds")
-                        .HasForeignKey("ScheduleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Medication");
-
-                    b.Navigation("Schedule");
+                        .HasForeignKey("TestScheduleId");
                 });
 
             modelBuilder.Entity("Time", b =>
                 {
-                    b.HasOne("Schedule", "Schedule")
+                    b.HasOne("TestSchedule", null)
                         .WithMany("Times")
-                        .HasForeignKey("ScheduleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Schedule");
+                        .HasForeignKey("TestScheduleId");
                 });
 
-            modelBuilder.Entity("Medication", b =>
-                {
-                    b.Navigation("ScheduleMeds");
-                });
-
-            modelBuilder.Entity("Schedule", b =>
+            modelBuilder.Entity("TestSchedule", b =>
                 {
                     b.Navigation("ScheduleMeds");
 

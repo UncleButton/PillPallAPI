@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -9,9 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace PillPallAPI.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    partial class MyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240212222235_Testing out new database structure")]
+    partial class Testingoutnewdatabasestructure
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.0");
@@ -127,7 +130,7 @@ namespace PillPallAPI.Migrations
 
             modelBuilder.Entity("Schedule", b =>
                 {
-                    b.Property<int?>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
@@ -151,7 +154,7 @@ namespace PillPallAPI.Migrations
                     b.Property<int>("ScheduleId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("MedicationId")
+                    b.Property<int>("MedId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Id")
@@ -161,9 +164,9 @@ namespace PillPallAPI.Migrations
                     b.Property<int>("NumPills")
                         .HasColumnType("INTEGER");
 
-                    b.HasKey("ScheduleId", "MedicationId");
+                    b.HasKey("ScheduleId", "MedId");
 
-                    b.HasIndex("MedicationId");
+                    b.HasIndex("MedId");
 
                     b.ToTable("ScheduleMeds");
                 });
@@ -209,7 +212,7 @@ namespace PillPallAPI.Migrations
                 {
                     b.HasOne("Medication", "Medication")
                         .WithMany("ScheduleMeds")
-                        .HasForeignKey("MedicationId")
+                        .HasForeignKey("MedId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
