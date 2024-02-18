@@ -12,17 +12,20 @@ namespace PillPallAPI.ArduinoCommunication;
 public class ArduinoCommunicator
 {
     const byte REQUEST_OFFSET = 6;  // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
-
+    const byte MAX_TRANSFER_ATTEMPTS = 5;
+    const char MESSAGE_SUCCESS = '0';
+    const string PORT_NAME = "COM7";
 
     public ArduinoCommunicator() {}
 
     // Takes in the request type and the data being sent and sends them as a message to the Arduino
     public bool SendRequest(int request, int[] data)
     {
-        Console.WriteLine("Request is " + request);
-        SerialPort sp = new SerialPort("COM7", 9600, Parity.None, 8, StopBits.One);
+        // Create new port with pre-determined port name
+        SerialPort sp = new SerialPort(PORT_NAME, 9600, Parity.None, 8, StopBits.One);
 
-        // Set the read timeout to 5 s
+        // Set the read and write timeouts to 5 s (probably will be increased or changed depending on the request)
+        sp.WriteTimeout = 5000;
         sp.ReadTimeout = 5000;
 
         // Open the port
@@ -32,13 +35,10 @@ public class ArduinoCommunicator
         // message, and the final byte holds the checksum.
         byte[] message = new byte[data.Length + 2];
 
-        // bits 7:6 hold the two request bits, and the remaining bits hold the length of the data
-        message[0] = (byte) ((request << REQUEST_OFFSET) + (byte) data.Length);
-        Console.WriteLine("(request << REQUEST_OFFSET) = " + (request << REQUEST_OFFSET));
-        Console.WriteLine("Request is now " + (int) message[0]);
-        // Console.WriteLine((byte) 134);
+        // bits 7:6 hold the two request bits, and the remaining bits hold the length of the data in bytes
+        message[0] = (byte) ((request << REQUEST_OFFSET) + data.Length);
 
-        // The checksum is a method used to ensure valid data is received on the Arduino. 
+        // The checksum is a method used to ensure valid data is received on the Arduino.
         byte chkSum = message[0];
         for (byte i = 0; i < data.Length; i++)
         {
@@ -46,35 +46,42 @@ public class ArduinoCommunicator
             chkSum += message[i+1];
         }
         message[data.Length+1] = chkSum;
-        foreach(var item in message)
-        {
-            Console.WriteLine((int) item);
-        }
 
-        while (!Console.KeyAvailable)
+        // We will only allow for 5 attempts to transfer the data correctly. If we fail 5 times, something must be wrong with either the data or
+        // the communication line
+        byte failedAttempts = 0;
+        while (failedAttempts < MAX_TRANSFER_ATTEMPTS)
         {
             try
             {
-                Console.WriteLine("Trying to Write stuff...");
-                // Write the array to the arduino via the serial port. "disps" is the array of bytes, 0 is the offset (leave at 0), and 10 is the amount of bytes
+                sp.DiscardInBuffer();
+                sp.DiscardOutBuffer();
+                // Write the array to the arduino via the serial port. "message" is the array of bytes, 0 is the offset (leave at 0), and
+                // message.Length indicates how many bytes to send.
                 sp.Write(message, 0, message.Length);
-                Thread.Sleep(1000);
-                // Read the result back from the arduino
-                string result = sp.ReadLine();
-                // Display the data
-                Console.WriteLine(result);
+                
+                // Now wait on the success response from the Arduino
+                int result = sp.ReadByte();
 
-                // result = sp.ReadLine();
-                // // Display the data
-                // Console.WriteLine(result);
-                break;
+                if (result == MESSAGE_SUCCESS)
+                {
+                    Console.WriteLine("Received correct message");
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine("Received CORRUPTED message");
+                }
+                failedAttempts++;
             }
             catch (TimeoutException)
             {
                 Console.WriteLine("Didn't get data back");
             }
         }
+        //  Close the port since we're done with this transaction
+        sp.Close();
 
-        return true;
+        return failedAttempts < MAX_TRANSFER_ATTEMPTS;
     }
 }
