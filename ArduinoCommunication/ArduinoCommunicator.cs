@@ -12,9 +12,9 @@ namespace PillPallAPI.ArduinoCommunication;
 public class ArduinoCommunicator
 {
     const byte REQUEST_OFFSET = 6;  // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
-    const byte MAX_TRANSFER_ATTEMPTS = 5;
-    const char MESSAGE_SUCCESS = '0';
-    const string PORT_NAME = "COM7";
+    const byte MAX_TRANSFER_ATTEMPTS = 5;   // MAX number of times we try to send the data before determining some failure
+    const char MESSAGE_SUCCESS = '0';   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
+    const string PORT_NAME = "COM7";    // This is the port used for the serial communication, CHANGE FOR PI
 
     public ArduinoCommunicator() {}
 
@@ -54,8 +54,10 @@ public class ArduinoCommunicator
         {
             try
             {
+                // Need to clear both in and out buffers, as there might still be data there from a previous attempt
                 sp.DiscardInBuffer();
                 sp.DiscardOutBuffer();
+
                 // Write the array to the arduino via the serial port. "message" is the array of bytes, 0 is the offset (leave at 0), and
                 // message.Length indicates how many bytes to send.
                 sp.Write(message, 0, message.Length);
@@ -71,12 +73,13 @@ public class ArduinoCommunicator
                 else
                 {
                     Console.WriteLine("Received CORRUPTED message");
+                    failedAttempts++;
                 }
-                failedAttempts++;
             }
-            catch (TimeoutException)
+            catch (Exception e) // TimeoutExceptions don't work?...so general one for now
             {
-                Console.WriteLine("Didn't get data back");
+                Console.WriteLine("Timeout on reading back a success indication");
+                break;
             }
         }
         //  Close the port since we're done with this transaction
