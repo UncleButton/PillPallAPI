@@ -13,7 +13,7 @@ public class Schedule
 
     public int? PIN {get; set;}
 
-    public List<ScheduleMed> ScheduleMeds { get; set; }
+    public List<ScheduleMed>? ScheduleMeds { get; set; }
 
-    public List<Time> Times { get; set; } = new List<Time>();
+    public List<Time>? Times { get; set; } = new List<Time>();
 }

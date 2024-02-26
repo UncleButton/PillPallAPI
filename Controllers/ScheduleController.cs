@@ -36,6 +36,8 @@ public class ScheduleController : ControllerBase
             var scheduleMeds = _dbContext.ScheduleMeds.Where(entity => entity.ScheduleId == schedule.Id).ToList();
             scheduleBus.ScheduleMeds = scheduleMeds;
 
+            scheduleBus.Id = scheduleMeds.Count > 0 ? (int) scheduleMeds[0].ScheduleId : -1;
+
             var timeIds = _dbContext.Times.Where(entity => entity.ScheduleId == schedule.Id).Select(entity => entity.Id).ToList();
             var times = _dbContext.Times.Where(entity => timeIds.Contains(entity.Id)).ToList();
 
@@ -53,36 +55,54 @@ public class ScheduleController : ControllerBase
     [Route("saveSchedule")]
     public async Task<IActionResult> SaveSchedule([FromBody] ScheduleMed[] meds)
     {     
-        //schedule is new
-        //if(newSchedule.Id == -1){
-            foreach(ScheduleMed med in meds){
-                var existingMed = _dbContext.Medications.Where(medication => med.Medication.Id == medication.Id);
-                if(existingMed.Any())
-                    med.Medication = existingMed.First();
+        foreach(ScheduleMed med in meds){
+            var existingMed = _dbContext.Medications.Where(medication => med.Medication.Id == medication.Id);
+            if(existingMed.Any())
+                med.Medication = existingMed.First();
                 
-                var existingSchedule = _dbContext.Schedules.Where(schedule => med.Schedule.Name.Equals(schedule.Name));
-                Console.WriteLine("matching schedules: " + existingSchedule.Count());
-                if(existingSchedule.Any()) {
-                    med.Schedule = existingSchedule.First();
-                    med.ScheduleId = existingSchedule.First().Id;
-                }
-                    
-                _dbContext.ScheduleMeds.Add(med);
-                await _dbContext.SaveChangesAsync();
+            var existingSchedule = _dbContext.Schedules.Where(schedule => med.Schedule.Name.Equals(schedule.Name));
+            Console.WriteLine("matching schedules: " + existingSchedule.Count());
+            if(existingSchedule.Any()) {
+                med.Schedule = existingSchedule.First();
+                med.ScheduleId = existingSchedule.First().Id;
             }
+                    
+            _dbContext.ScheduleMeds.Add(med);
+            await _dbContext.SaveChangesAsync();
+        }
+        return Ok();
+    }
 
-            // foreach(Time time in newSchedule.Times){
-            //     if(!time.DateTime.Equals("nana"))
-            //         _dbContext.Times.Add(time);
-            // }
-            // _dbContext.ScheduleMeds.AddRange(newSchedule.ScheduleMeds);
-        //}
-        //else //schedule is being edited
-        //{
-            //to-do
-        //}
+    [HttpPost]
+    [Route("updateSchedule")]
+    public async Task<IActionResult> UpdateSchedule([FromBody] Schedule schedule)
+    {     
+        var existingSchedule = _dbContext.Schedules.Where(entity => entity.Id == schedule.Id).FirstOrDefault();
 
-        
+        if(existingSchedule == null)
+            return BadRequest();
+
+        existingSchedule.Name = schedule.Name;
+        existingSchedule.PIN = schedule.PIN;
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok();
+    }
+
+    [HttpPost]
+    [Route("deleteSchedule")]
+    public async Task<IActionResult> DeleteSchedule([FromBody] Schedule schedule)
+    {     
+        var existingSchedule = _dbContext.Schedules.Where(entity => entity.Id == schedule.Id).FirstOrDefault();
+
+        if(existingSchedule == null)
+            return BadRequest();
+
+        _dbContext.Remove(existingSchedule);
+
+        await _dbContext.SaveChangesAsync();
+
         return Ok();
     }
 
