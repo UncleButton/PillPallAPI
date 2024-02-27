@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj": {}
+    "C:\\Repos\\PillPallAPI\\PillPallAPI.csproj": {}
   },
   "projects": {
-    "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj": {
+    "C:\\Repos\\PillPallAPI\\PillPallAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
+        "projectUniqueName": "C:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
         "projectName": "PillPallAPI",
-        "projectPath": "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
+        "projectPath": "C:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
         "packagesPath": "C:\\Users\\E1341515\\.nuget\\packages\\",
-        "outputPath": "c:\\Repos\\PillPallAPI\\obj\\",
+        "outputPath": "C:\\Repos\\PillPallAPI\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\E1341515\\AppData\\Roaming\\NuGet\\NuGet.Config",

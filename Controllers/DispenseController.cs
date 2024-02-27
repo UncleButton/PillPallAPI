@@ -48,8 +48,13 @@ public class DispenseController : ControllerBase
         }
 
         //thank you justin.  Send request to arduino communicator
-        ArduinoCommunicator comm = new ArduinoCommunicator();
-        comm.SendRequest(2, dispenseArray);
+        try {
+            ArduinoCommunicator comm = new ArduinoCommunicator();
+            comm.SendRequest(2, dispenseArray);
+        }
+        catch(Exception e) {
+            return BadRequest("Failed to communicate with device. " + e.Message);
+        }
 
         return Ok();
     }

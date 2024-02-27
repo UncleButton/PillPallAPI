@@ -10,6 +10,7 @@
 */
 
 using Microsoft.AspNetCore.Mvc;
+using PillPallAPI.ArduinoCommunication;
 
 namespace PillPallAPI.Controllers;
 
@@ -64,8 +65,8 @@ public class PillInformationController : ControllerBase
             //get containers that are currently in use
             var containersInUse = _dbContext.ContainerMedMaps.Where(entity => nonZeroMedIds.Contains(entity.MedId)).Select(entity => entity.ContainerId);
 
-            //get the containers NOT in use
-            var containersNotInUse = _dbContext.Containers.Where(entity => !containersInUse.Contains(entity.Id)).Select(entity => entity.Id);
+            //get a container NOT in use
+            var containerIdNotInUse = _dbContext.Containers.Where(entity => !containersInUse.Contains(entity.Id)).Select(entity => entity.Id).First();
 
             //get the current largest medication id
             var largestMed = _dbContext.Medications.OrderByDescending(entity => entity.Id).FirstOrDefault();
@@ -76,9 +77,18 @@ public class PillInformationController : ControllerBase
 
             //create new med map that maps one of the unused containers with the new med id
             ContainerMedMap newContainerMedMap = new ContainerMedMap() { 
-                ContainerId = containersNotInUse.First(), 
+                ContainerId = containerIdNotInUse, 
                 MedId = newLargestMedId
             };
+
+            //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
+            try {
+                ArduinoCommunicator comm = new ArduinoCommunicator();
+                comm.SendRequest(1, new int[]{containerIdNotInUse, 0, 0, 0, 0, 0});
+            }
+            catch(Exception e){
+                return BadRequest("Failed to communicate with machine. " + e.Message);
+            }
 
             //set new medication id and save both the medication and the container med map (so we know which container the medication is in)
             newMedication.Id = newLargestMedId;
