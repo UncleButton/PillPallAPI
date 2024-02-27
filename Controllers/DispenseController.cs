@@ -1,5 +1,14 @@
 //Britton Bailer, January 2024
 
+//any requests coming into the api dealing with dispensing come into the api via this file
+
+/*
+
+    1. DispenseSchedule(schedule)
+
+
+*/
+
 using Microsoft.AspNetCore.Mvc;
 using PillPallAPI.ArduinoCommunication;
 using SQLitePCL;
@@ -18,14 +27,39 @@ public class DispenseController : ControllerBase
     }
 
     [HttpPost]
+    [Route("dispenseSchedule")]
+    public IActionResult DispenseSchedule([FromBody] Schedule schedule)
+    {
+        //get schedule id, container id, and num pills for each of the requested pills
+        var containersToDispense = _dbContext.ContainerMedMaps.Join(_dbContext.ScheduleMeds, medMapTable => medMapTable.MedId, scheduleMedTable => scheduleMedTable.MedicationId, 
+            (medMapTable, scheduleMedTable) => new DispenseContainer{
+                scheduleId = (int)scheduleMedTable.ScheduleId!,
+                containerId = medMapTable.ContainerId,
+                numPills = scheduleMedTable.NumPills
+            }
+        ).Where(entity => entity.scheduleId == schedule.Id);
+
+        //initialize dispense array with 0s
+        var dispenseArray = new int[]{0, 0, 0, 0, 0, 0};
+
+        //fill dispense array with the number of each pill requested
+        foreach(DispenseContainer containerToDispense in containersToDispense){
+            dispenseArray[containerToDispense.containerId] = containerToDispense.numPills;
+        }
+
+        //thank you justin.  Send request to arduino communicator
+        ArduinoCommunicator comm = new ArduinoCommunicator();
+        comm.SendRequest(2, dispenseArray);
+
+        return Ok();
+    }
+
+    [HttpPost]
     [Route("dispense")]
     public IActionResult DispenseMedication([FromBody] int[] dispenseList)
     {
         ArduinoCommunicator comm = new ArduinoCommunicator();
         comm.SendRequest(2, new int[] {135,136,137,138,139,140});
-        //JUSTIN'S AREA
-
-        //PUT LOGIC HERE THAT DOES THE ACTUAL DISPENSING/USES YOUR DEVICE CONTROLLERS
 
         return Ok();
     }
