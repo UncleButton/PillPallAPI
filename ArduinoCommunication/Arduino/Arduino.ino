@@ -30,8 +30,13 @@ const int PIN_LIGHT_SENSOR = 5;
 const int PIN_VACUUM = 6;
 const int PIN_FORWARDS = 7;
 const int PIN_BACKWARDS = 8;
+const int PIN_INFRARED = 9;
+const int PIN_ULTRASONIC_TRIG = 10;
+const int PIN_ULTRASONIC_ECHO = 11;
 
 // These are specifically in relation to operation of the NEMA Stepper Motor, which spins the base that the cartridges are on
+const byte DISPENSE_DELAY_TIME = 50;    //  Delay time needed between switching the nema on and off when dispensing
+const byte RESET_DELAY_TIME = 200;      //  Delay time needed for resetting the plate to 0
 const byte NEMA_CLOCKWISE = 0;
 const byte NEMA_COUNTER_CLOCKWISE = 1;
 const int LITTLE_GEAR_TEETH = 12;
@@ -48,7 +53,6 @@ byte dataLength = 0;    // The length of the data in bytes, used to allocate the
 byte currentState = STATE_INITIALIZE;   // Set current state to initializing, cannot be modified outside of "loop"
 byte nextState = STATE_READ_DATA;       // The next state in the machine, can be modified outside of "loop"
 
-byte nemaDelayTime = 50;    // Delay time needed between switching the nema on and off to spin
 byte nemaDirection = 1;     // 1 is counter clockwise, 0 is clockwise
 int nemaCurrentPos = 0;     // Current position of the base plate
 
@@ -61,6 +65,7 @@ void setup()
     // Set these pins to output so we can write signals to them
     pinMode(PIN_NEMA_DIRECTION, OUTPUT);
     pinMode(PIN_NEMA_STEP, OUTPUT);
+    pinMode(PIN_INFRARED, INPUT);
 }
 
 //  This reads in the data coming in on the serial port. It will determine what type of request is being made, allocate the appropriate amount of
@@ -104,6 +109,20 @@ byte readData()
     return isValid;
 }
 
+//  This rotates the base plate until cartridge 0 is underneath the vacuum hose. A strip of tape has been placed on the side of the base plate, and
+//  there is an infrared sensor that will detect this strip of tape. The base will keep spinning until the sensor detects the tape, and then stops
+//  spinning. The sensor and tape have been placed such that, when it stops, cartridge 0 will be in the correct place.
+void resetPlate()
+{
+    while (digitalRead(PIN_INFRARED))
+    {
+        digitalWrite(PIN_NEMA_STEP, HIGH);
+        delayMicroseconds(RESET_DELAY_TIME);
+        digitalWrite(PIN_NEMA_STEP, LOW);
+        delayMicroseconds(RESET_DELAY_TIME);
+    }
+}
+
 //  This takes in whatever the next location of the plate needs to be rotated to, for it to be under the vacuum. It looks at its last known location
 //  and calculates how much it needs to rotate to get that location under the vacuum. It then figures out which is faster, rotating clockwise or
 //  counter clockwise, and then finally actually rotates the plate accordingly.
@@ -139,15 +158,15 @@ void spinPlate(int nextLocation)
 
     //  Set the direction pin and then start the rotate. The motor works by rotating a step every time it senses a high transition, so in every
     //  iteration of the loop we start by sending a HIGH (1) signal to get it to step, then send LOW (0) so that it's ready for the next step.
-    //  The "nemaDelayTime" is needed so there is some delay between the pin getting the high and low signal. This also allows us to control the
-    //  speed at which the plate actually spins.
+    //  The "DISPENSE_DELAY_TIME" is needed so there is some delay between the pin getting the high and low signal. This also allows us to control
+    //  the speed at which the plate actually spins.
     digitalWrite(PIN_NEMA_DIRECTION, nemaDirection);
     for (int x = 0; x < stepsToGo; x++)
     {
         digitalWrite(PIN_NEMA_STEP, HIGH);
-        delayMicroseconds(nemaDelayTime);
+        delayMicroseconds(DISPENSE_DELAY_TIME);
         digitalWrite(PIN_NEMA_STEP, LOW);
-        delayMicroseconds(nemaDelayTime);
+        delayMicroseconds(DISPENSE_DELAY_TIME);
     }
     return;
 }
@@ -173,8 +192,11 @@ void loop()
                 byte success = readData();
                 currentState = nextState;
 
-                // Send response back to pi, letting it know whether the data we got was valid
+                //  Send response back to pi, letting it know whether the data we got was valid
                 Serial.println(success);
+
+                //  Reset the plate so that cartidge 0 is underneath the vacuum hose
+                resetPlate();
             }
             break;
         }
