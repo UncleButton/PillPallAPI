@@ -26,6 +26,11 @@ public class DispenseController : ControllerBase
         _dbContext = dbContext;
     }
 
+    /// <summary>
+    /// Sends communication to the device to dispense pills based on the schedule that was passed into this endpoint.
+    /// </summary>
+    /// <param name="schedule"></param>
+    /// <returns></returns>
     [HttpPost]
     [Route("dispenseSchedule")]
     public IActionResult DispenseSchedule([FromBody] Schedule schedule)
@@ -59,7 +64,12 @@ public class DispenseController : ControllerBase
         return Ok();
     }
 
-        [HttpPost]
+    /// <summary>
+    /// Sends communication to the device to dispense pills based on the list of ScheduleMeds passed into this endpoint.
+    /// </summary>
+    /// <param name="scheduleMeds"></param>
+    /// <returns></returns>
+    [HttpPost]
     [Route("dispenseCustom")]
     public IActionResult DispenseCustom([FromBody] ScheduleMed[] scheduleMeds)
     {

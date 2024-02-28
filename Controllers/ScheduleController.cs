@@ -26,6 +26,10 @@ public class ScheduleController : ControllerBase
         _dbContext = dbContext;
     }
 
+    /// <summary>
+    /// Returns a list of all schedules in the database.
+    /// </summary>
+    /// <returns></returns>
     [HttpGet]
     [Route("getSchedules")]
     public IActionResult GetSchedules()
@@ -49,6 +53,11 @@ public class ScheduleController : ControllerBase
         return Ok(schedules);
     }
 
+    /// <summary>
+    /// Saves a new schedule passed into this endpoint via the ScheduleMed[] list
+    /// </summary>
+    /// <param name="meds"></param>
+    /// <returns></returns>
     [HttpPost]
     [Route("saveSchedule")]
     public async Task<IActionResult> SaveSchedule([FromBody] ScheduleMed[] meds)
@@ -75,6 +84,11 @@ public class ScheduleController : ControllerBase
         return Ok();
     }
 
+    /// <summary>
+    /// Updates an existing Schedule
+    /// </summary>
+    /// <param name="schedule"></param>
+    /// <returns></returns>
     [HttpPost]
     [Route("updateSchedule")]
     public async Task<IActionResult> UpdateSchedule([FromBody] Schedule schedule)
@@ -96,6 +110,11 @@ public class ScheduleController : ControllerBase
         return Ok();
     }
 
+    /// <summary>
+    /// Deletes an existing schedule
+    /// </summary>
+    /// <param name="schedule"></param>
+    /// <returns></returns>
     [HttpPost]
     [Route("deleteSchedule")]
     public async Task<IActionResult> DeleteSchedule([FromBody] Schedule schedule)

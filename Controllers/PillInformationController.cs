@@ -25,6 +25,10 @@ public class PillInformationController : ControllerBase
         _dbContext = dbContext;
     }
 
+    /// <summary>
+    /// Returns a list of all current medications.  (Medications in the database without any pills left are NOT included)
+    /// </summary>
+    /// <returns></returns>
     [HttpGet]
     [Route("getAllContainers")]
     public IActionResult GetCurrentMedication()
@@ -43,6 +47,11 @@ public class PillInformationController : ControllerBase
         return Ok(meds);
     }
 
+    /// <summary>
+    /// Saves a new medication or updates the medication if it already exists in the database.
+    /// </summary>
+    /// <param name="newMedication"></param>
+    /// <returns></returns>
     [HttpPost]
     [Route("saveMedication")]
     public async Task<IActionResult> SaveMedication([FromBody] Medication newMedication)
