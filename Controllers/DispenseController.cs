@@ -5,7 +5,7 @@
 /*
 
     1. DispenseSchedule(schedule)
-
+    2. DispenseCustom(scheduleMeds[])
 
 */
 
@@ -45,6 +45,35 @@ public class DispenseController : ControllerBase
         //fill dispense array with the number of each pill requested
         foreach(DispenseContainer containerToDispense in containersToDispense){
             dispenseArray[containerToDispense.containerId] = containerToDispense.numPills;
+        }
+
+        //thank you justin.  Send request to arduino communicator
+        try {
+            ArduinoCommunicator comm = new ArduinoCommunicator();
+            comm.SendRequest(2, dispenseArray);
+        }
+        catch(Exception e) {
+            return BadRequest("Failed to communicate with device. " + e.Message);
+        }
+
+        return Ok();
+    }
+
+        [HttpPost]
+    [Route("dispenseCustom")]
+    public IActionResult DispenseCustom([FromBody] ScheduleMed[] scheduleMeds)
+    {
+        //initialize dispense array with 0s
+        var dispenseArray = new int[]{0, 0, 0, 0, 0, 0};
+
+        //fill dispense array with the number of each pill requested
+        foreach(ScheduleMed scheduleMed in scheduleMeds){
+            var container = _dbContext.ContainerMedMaps.Where(entity => entity.MedId == scheduleMed.Medication!.Id).FirstOrDefault();
+
+            if(container == null)
+                return BadRequest("Encountered a problem mapping the medication to the container.");
+
+            dispenseArray[container.ContainerId] = scheduleMed.NumPills;
         }
 
         //thank you justin.  Send request to arduino communicator
