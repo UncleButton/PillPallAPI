@@ -16,4 +16,6 @@ public class Schedule
     public List<ScheduleMed>? ScheduleMeds { get; set; }
 
     public List<Time>? Times { get; set; } = new List<Time>();
+
+    public string Days { get; set; } = "";
 }

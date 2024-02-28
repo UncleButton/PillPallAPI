@@ -103,6 +103,7 @@ public class ScheduleController : ControllerBase
         //we only allow updating name and PIN (for now), so update
         existingSchedule.Name = schedule.Name;
         existingSchedule.PIN = schedule.PIN;
+        existingSchedule.Days = schedule.Days;
 
         //save changes
         await _dbContext.SaveChangesAsync();
