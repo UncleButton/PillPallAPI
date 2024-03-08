@@ -10,6 +10,7 @@
 
 using System.Net;
 using System.Net.Mail;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace PillPallAPI.Controllers;
@@ -47,7 +48,11 @@ public class ReminderController : ControllerBase
             {               
                 message.From = new MailAddress("pillpalmachine@outlook.com");
 
-                message.To.Add(new MailAddress("britton.bailer@gmail.com"));
+                //message.To.Add(new MailAddress("britton.bailer@gmail.com"));
+                if(!string.IsNullOrWhiteSpace(schedule.notificationEmail))
+                    message.To.Add(schedule.notificationEmail);
+                else
+                    return BadRequest("No email address listed");//shouldnt happen
 
                 message.Subject = "Scheduled Medication Reminder";
                 message.Body = "Don't forget to take your meds! Your schedule \"" + schedule.Name + "\" is in 30 minutes.  Have a great day!";

@@ -134,24 +134,5 @@ public class ScheduleController : ControllerBase
         await _dbContext.SaveChangesAsync();
 
         return Ok();
-    }
-
-    // private void messageMe(){
-    //     var message = new MailMessage();
-    //     message.From = new MailAddress("pillpalmachine@outlook.com");
-
-    //     message.To.Add(new MailAddress("4407592699@tmomail.net"));
-
-    //     //message.Subject = "This is my subject";
-    //     message.Body = "this is the content";
-
-    //     var client = new SmtpClient("smtp-mail.outlook.com", 587)
-    //         {
-    //             Credentials = new NetworkCredential("pillpalmachine@outlook.com", "sxouibditeeflwup"),
-    //             EnableSsl = true
-    //         };
-    //     client.Send(message);
-
-    // }
-    
+    }  
 }
