@@ -44,9 +44,7 @@ public class ReminderController : ControllerBase
         while (attempts < maxRetries)
         {
             try
-            {
-                // don't use SmtpClient in production
-                
+            {               
                 message.From = new MailAddress("pillpalmachine@outlook.com");
 
                 message.To.Add(new MailAddress("britton.bailer@gmail.com"));
@@ -56,7 +54,6 @@ public class ReminderController : ControllerBase
 
                 client.Send(message);
                 return Ok();
-                
             }
             catch (Exception)
             {

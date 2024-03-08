@@ -18,4 +18,6 @@ public class Schedule
     public List<Time>? Times { get; set; } = new List<Time>();
 
     public string Days { get; set; } = "";
+
+    public string notificationEmail = "";
 }
