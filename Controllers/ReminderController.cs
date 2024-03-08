@@ -1,19 +1,16 @@
 //Britton Bailer, January 2024
 
-//any requests coming into the api dealing with dispensing come into the api via this file
+//any requests coming into the api dealing with reminders come into the api via this file
 
 /*
 
-    1. DispenseSchedule(schedule)
-    2. DispenseCustom(scheduleMeds[])
+    1. RemindSchedule(schedule)
 
 */
 
 using System.Net;
 using System.Net.Mail;
 using Microsoft.AspNetCore.Mvc;
-using PillPallAPI.ArduinoCommunication;
-using SQLitePCL;
 
 namespace PillPallAPI.Controllers;
 
@@ -64,7 +61,7 @@ public class ReminderController : ControllerBase
             catch (Exception)
             {
                 attempts++;
-                System.Threading.Thread.Sleep(1000);
+                Thread.Sleep(1000);
                 if (attempts == maxRetries)
                 {
                     throw new InvalidOperationException("Failed to send email after multiple attempts.");
