@@ -83,7 +83,7 @@ public class DispenseController : ControllerBase
             if(container == null)
                 return BadRequest("Encountered a problem mapping the medication to the container.");
 
-            dispenseArray[container.ContainerId] = scheduleMed.NumPills;
+            dispenseArray[container.ContainerId] = scheduleMed.NumPills; 
         }
 
         //thank you justin.  Send request to arduino communicator
