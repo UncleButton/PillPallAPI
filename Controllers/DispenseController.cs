@@ -58,8 +58,22 @@ public class DispenseController : ControllerBase
             comm.SendRequest(2, dispenseArray);
         }
         catch(Exception e) {
-            return BadRequest("Failed to communicate with device. " + e.Message);
+            throw new Exception("Failed to communicate with device. " + e.Message);
         }
+
+        //add dispense log
+        var dispenseLog = new DispenseLog{
+            ScheduleId = schedule.Id,
+            Timestamp = DateTime.Now
+        };
+        _dbContext.DispenseLogs.Add(dispenseLog);
+
+        foreach(ScheduleMed scheduleMed in schedule.ScheduleMeds!){
+            //subtract pills from tracked numPills
+            updateMedNumPills((int)scheduleMed.MedicationId!, scheduleMed.NumPills);
+        }
+
+        _dbContext.SaveChanges();
 
         return Ok();
     }
@@ -84,6 +98,17 @@ public class DispenseController : ControllerBase
                 return BadRequest("Encountered a problem mapping the medication to the container.");
 
             dispenseArray[container.ContainerId] = scheduleMed.NumPills; 
+
+            //add dispense log
+            var dispenseLog = new DispenseLog{
+                MedId = scheduleMed.Medication?.Id,
+                NumPills = scheduleMed.NumPills,
+                Timestamp = DateTime.Now
+            };
+            _dbContext.DispenseLogs.Add(dispenseLog);
+
+            //subtract pills from tracked numPills
+            updateMedNumPills(scheduleMed.Medication!.Id, scheduleMed.NumPills);
         }
 
         //thank you justin.  Send request to arduino communicator
@@ -92,8 +117,10 @@ public class DispenseController : ControllerBase
             comm.SendRequest(2, dispenseArray);
         }
         catch(Exception e) {
-            return BadRequest("Failed to communicate with device. " + e.Message);
+            throw new Exception("Failed to communicate with device. " + e.Message);
         }
+
+        _dbContext.SaveChanges();
 
         return Ok();
     }
@@ -106,6 +133,11 @@ public class DispenseController : ControllerBase
         comm.SendRequest(2, new int[] {135,136,137,138,139,140});
 
         return Ok();
+    }
+
+    private void updateMedNumPills(int medId, int numPills){
+        var med = _dbContext.Medications.Where(entity => entity.Id == medId).First();
+        med.NumPills -= numPills;
     }
     
 }

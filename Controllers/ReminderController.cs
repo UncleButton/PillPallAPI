@@ -41,7 +41,7 @@ public class ReminderController : ControllerBase
     public IActionResult RemindSchedule([FromBody] Schedule schedule)
     {
         int attempts = 0;
-        int maxRetries = 10;
+        int maxRetries = 3;
         while (attempts < maxRetries)
         {
             try
