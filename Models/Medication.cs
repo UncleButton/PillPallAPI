@@ -12,7 +12,7 @@ public class Medication
     public string? Description {get; set;}
     public required int NumPills {get;set;}
     public required string ExpirationDate {get;set;}
-    public int? PIN { get; set; }
+    public string PIN { get; set; } = "";
 
     //dosage info
     public int? MaxPillsPerDose {get;set;}
