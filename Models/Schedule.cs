@@ -19,5 +19,5 @@ public class Schedule
 
     public string Days { get; set; } = "";
 
-    public string notificationEmail = "";
+    public string notificationEmail { get; set; } = "";
 }

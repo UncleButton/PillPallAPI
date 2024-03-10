@@ -58,7 +58,7 @@ public class DispenseController : ControllerBase
             comm.SendRequest(2, dispenseArray);
         }
         catch(Exception e) {
-            throw new Exception("Failed to communicate with device. " + e.Message);
+            return BadRequest("Failed to communicate with device. " + e.Message);
         }
 
         //add dispense log

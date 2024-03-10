@@ -100,10 +100,10 @@ public class ScheduleController : ControllerBase
         if(existingSchedule == null)
             return BadRequest();
 
-        //we only allow updating name and PIN (for now), so update
         existingSchedule.Name = schedule.Name;
         existingSchedule.PIN = schedule.PIN;
         existingSchedule.Days = schedule.Days;
+        existingSchedule.notificationEmail = schedule.notificationEmail;
 
         //save changes
         await _dbContext.SaveChangesAsync();
