@@ -62,6 +62,9 @@ public class ScheduleController : ControllerBase
     [Route("saveSchedule")]
     public async Task<IActionResult> SaveSchedule([FromBody] ScheduleMed[] meds)
     {     
+        if(meds.Length == 0){
+            return BadRequest();
+        }
         //get each medication out of the scheduleMed object
         foreach(ScheduleMed med in meds){
             //get the reference to the existing medication (if it exists)

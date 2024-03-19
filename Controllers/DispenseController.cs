@@ -10,6 +10,7 @@
 */
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PillPallAPI.ArduinoCommunication;
 using SQLitePCL;
 
@@ -62,11 +63,16 @@ public class DispenseController : ControllerBase
         }
 
         //add dispense log
-        var dispenseLog = new DispenseLog{
-            ScheduleId = schedule.Id,
-            Timestamp = DateTime.Now
-        };
-        _dbContext.DispenseLogs.Add(dispenseLog);
+        foreach(ScheduleMed scheduleMed in schedule.ScheduleMeds!){
+            var dispenseLog = new DispenseLog{
+                MedId = scheduleMed.MedicationId,
+                NumPills = scheduleMed.NumPills,
+                ScheduleId = schedule.Id,
+                Timestamp = DateTime.Now
+            };
+            _dbContext.DispenseLogs.Add(dispenseLog);
+        }
+        
 
         foreach(ScheduleMed scheduleMed in schedule.ScheduleMeds!){
             //subtract pills from tracked numPills
@@ -123,6 +129,40 @@ public class DispenseController : ControllerBase
         _dbContext.SaveChanges();
 
         return Ok();
+    }
+
+    /// <summary>
+    /// Returns a list of all dispense logs.
+    /// </summary>
+    /// <returns></returns>
+    [HttpGet]
+    [Route("getDispenseLogs")]
+    public IActionResult GetDispenseLogs()
+    {        
+        //get all dispense logs in order from most recent to least recent
+        var dispenseLogs = _dbContext.DispenseLogs;
+
+        if(dispenseLogs.ToList().Count == 0)
+            return BadRequest();
+
+        var verboseDispenseLogs = new List<VerboseDispenseLog>();
+
+        foreach(DispenseLog dispenseLog in dispenseLogs){
+            var verboseDispenseLog = new VerboseDispenseLog();
+            verboseDispenseLog.Timestamp = dispenseLog.Timestamp;
+            verboseDispenseLog.NumPills = dispenseLog.NumPills;
+
+            var med = _dbContext.Medications.FirstOrDefaultAsync(entity => entity.Id == dispenseLog.MedId);
+            verboseDispenseLog.MedName = med.Result == null ? "Error" : med.Result.Name;
+
+            var schedule = _dbContext.Schedules.FirstOrDefaultAsync(entity => entity.Id == dispenseLog.ScheduleId);
+            verboseDispenseLog.ScheduleName = schedule.Result == null ? "Custom Dispense" : schedule.Result.Name;
+
+            verboseDispenseLogs.Add(verboseDispenseLog);
+        }
+
+        //return all verbose dispense logs
+        return Ok(verboseDispenseLogs.OrderByDescending(entity => entity.Timestamp));
     }
 
     [HttpPost]
