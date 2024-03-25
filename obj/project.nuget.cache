@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "D4Yq+RS5rZ21D0yC7VDkEUsb+aV/7+NNQ8Hyqh+bBn2aP5EvzuQ65Q3TouD5cpeZFQp+LTld6K4h0/se2pcx4Q==",
+  "dgSpecHash": "GHvl1q5WJX8Ch31LMkV/8XdEoXLbn4o8K+///XkNzvxCI0cO2kDHVgkkQHaZlyvqhHWYhzzf6Lj/CjQ/PJRYZw==",
   "success": true,
-  "projectFilePath": "C:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
+  "projectFilePath": "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\E1341515\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\E1341515\\.nuget\\packages\\microsoft.aspnetcore.cors\\2.2.0\\microsoft.aspnetcore.cors.2.2.0.nupkg.sha512",

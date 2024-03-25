@@ -10,6 +10,7 @@
 */
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PillPallAPI.ArduinoCommunication;
 
 namespace PillPallAPI.Controllers;
@@ -109,6 +110,36 @@ public class PillInformationController : ControllerBase
             _dbContext.Medications.Update(newMedication);
         }
 
+        await _dbContext.SaveChangesAsync();
+        return Ok();
+    }
+
+    /// <summary>
+    /// Saves a new medication or updates the medication if it already exists in the database.
+    /// </summary>
+    /// <param name="newMedication"></param>
+    /// <returns></returns>
+    [HttpPost]
+    [Route("refill")]
+    public async Task<IActionResult> Refill([FromBody] RefillObject refillObject)
+    {
+        //move cartrige to opening
+        //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
+            try {
+                ArduinoCommunicator comm = new ArduinoCommunicator();
+                comm.SendRequest(1, new int[]{ refillObject.ContainerId});
+            }
+            catch(Exception e){
+                return BadRequest("Failed to communicate with machine. " + e.Message);
+            }
+
+        //add pills to medication
+        if(refillObject.Medication != null && refillObject.Medication.Id != -1 && refillObject.Qty > 0){
+            var refillMedication = await _dbContext.Medications.Where(entity => entity.Id == refillObject.Medication.Id).FirstOrDefaultAsync();
+            refillMedication!.NumPills += refillObject.Qty;
+        }
+
+        //return
         await _dbContext.SaveChangesAsync();
         return Ok();
     }
