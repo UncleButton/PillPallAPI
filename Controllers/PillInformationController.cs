@@ -115,9 +115,9 @@ public class PillInformationController : ControllerBase
     }
 
     /// <summary>
-    /// Saves a new medication or updates the medication if it already exists in the database.
+    /// Refills a medication. Moves the cartrige over to the correct spot for refilling and updates the medication 'numPills' in the database.
     /// </summary>
-    /// <param name="newMedication"></param>
+    /// <param name="refillObject"></param>
     /// <returns></returns>
     [HttpPost]
     [Route("refill")]
