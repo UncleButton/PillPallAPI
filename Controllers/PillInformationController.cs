@@ -137,6 +137,8 @@ public class PillInformationController : ControllerBase
         if(refillObject.Medication != null && refillObject.Medication.Id != -1 && refillObject.Qty > 0){
             var refillMedication = await _dbContext.Medications.Where(entity => entity.Id == refillObject.Medication.Id).FirstOrDefaultAsync();
             refillMedication!.NumPills += refillObject.Qty;
+        } else {
+            return BadRequest("Something went wrong!");
         }
 
         //return

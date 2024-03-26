@@ -37,8 +37,8 @@ public class ReminderController : ControllerBase
     /// <param name="schedule"></param>
     /// <returns></returns>
     [HttpPost]
-    [Route("remindSchedule")]
-    public IActionResult RemindSchedule([FromBody] Schedule schedule)
+    [Route("sendReminder")]
+    public IActionResult Reminder([FromBody] Reminder reminder)
     {
         int attempts = 0;
         int maxRetries = 3;
@@ -48,14 +48,13 @@ public class ReminderController : ControllerBase
             {               
                 message.From = new MailAddress("pillpalmachine@outlook.com");
 
-                //message.To.Add(new MailAddress("britton.bailer@gmail.com"));
-                if(!string.IsNullOrWhiteSpace(schedule.notificationEmail))
-                    message.To.Add(schedule.notificationEmail);
+                if(!string.IsNullOrWhiteSpace(reminder.ToAddress))
+                    message.To.Add(reminder.ToAddress);
                 else
                     return BadRequest("No email address listed");//shouldnt happen
 
-                message.Subject = "Scheduled Medication Reminder";
-                message.Body = "Don't forget to take your meds! Your schedule \"" + schedule.Name + "\" is in 30 minutes.  Have a great day!";
+                message.Subject = reminder.Subject;
+                message.Body = reminder.Body;
 
                 client.Send(message);
                 return Ok();
