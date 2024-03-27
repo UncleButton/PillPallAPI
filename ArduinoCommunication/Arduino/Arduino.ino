@@ -31,10 +31,12 @@ const byte ULTRASONIC_FAIL = -1;
 //  time it takes for the ultrasonic signal to travel double the actual distance
 const float ULTRASONIC_SPEED_CM_PER_US = 0.0343 / 2;
 const float CM_FROM_ULTRASONIC_TO_CARTRIDGE = 8.1977;
+const float MAX_DISTANCE = 8.6; // MAYBE???
 const int MS_FROM_ULTRASONIC_TO_CARTRIDGE = 7850;
 const float ACTUATOR_SPEED_CM_PER_SECOND = CM_FROM_ULTRASONIC_TO_CARTRIDGE / MS_FROM_ULTRASONIC_TO_CARTRIDGE;
 
 // The states of the machine, starting with the initialize state
+const byte STATE_CALIBRATE = 0;
 const byte STATE_READ_DATA = 1;
 const byte STATE_SELECT_CARTRIDGE = 2;
 const byte STATE_ROTATE_REFILL = 3;
@@ -252,12 +254,13 @@ void readUltrasonic()
     int sum = 0;
     for (int i = 0; i < 5; i++)
         sum += ultrasonicTimes[i];
-    {
-        ultrasonicMicroTime = sum / 5;
+    
+    ultrasonicMicroTime = sum / 5;
+    distanceInCm = ultrasonicMicroTime * ULTRASONIC_SPEED_CM_PER_US;
+    if (distanceInCm < MAX_DISTANCE)
         nextState = STATE_ROTATE_TO_VACUUM;
-        // Serial.println(ultrasonicMicroTime);
-        // Serial.print(" ");
-    }
+    // Serial.println(ultrasonicMicroTime);
+    // Serial.print(" ");
 }
 
 void lowerHose()
@@ -294,6 +297,26 @@ void loop()
 {
     switch (currentState)
     {
+        case STATE_CALIBRATE:
+        {
+            float times;
+            for (int i = 0; i < 100; i++)
+            {
+                readUltrasonic();
+                // if (maxTime < ultrasonicMicroTime)
+                //     maxTime = ultrasonicMicroTime;
+                times += ultrasonicMicroTime;
+                Serial.println(ultrasonicMicroTime);
+            }
+            Serial.print("avg time is: ");
+            // Serial.println(times/100);
+            // timeToLower = MAX_DISTANCE / ACTUATOR_SPEED_CM_PER_SECOND;
+            // lowerHose();
+            // delay(2000);
+            // raiseHose();
+            nextState = STATE_CALIBRATE;
+            break;
+        }
         // In the read data state, we wait until there is data available on the serial port and then try to read it on
         case STATE_READ_DATA:
         {
@@ -307,7 +330,8 @@ void loop()
                 Serial.println(success);
 
                 //  Reset the plate so that cartidge 0 is underneath the vacuum hose
-                resetPlate();
+                if (digitalRead(PIN_INFRARED))
+                    resetPlate();
                 // spinPlate(NEMA_HALF_REV_LOCATION);
                 currentCartridge = 0;
             }
@@ -354,7 +378,6 @@ void loop()
         case STATE_ROTATE_TO_VACUUM:
         {
             spinPlate(CARTRIDGE_LOCATIONS[currentCartridge]);
-            distanceInCm = ultrasonicMicroTime * ULTRASONIC_SPEED_CM_PER_US;
             timeToLower = distanceInCm / ACTUATOR_SPEED_CM_PER_SECOND;
             // Serial.print(ultrasonicMicroTime);
             // Serial.print(" ");
@@ -382,7 +405,8 @@ void loop()
         case STATE_DONE:
         {
             //  Reset the plate so that cartidge 0 is underneath the vacuum hose
-            resetPlate();
+            if (digitalRead(PIN_INFRARED))
+                resetPlate();
             nextState = STATE_READ_DATA;
             break;
         }
