@@ -25,7 +25,7 @@ public class Medication
     public string? PharmacyCity {get;set;}
     public string? PharmacyState {get;set;}
     public string? PharmacyZip {get;set;}
-    public int? PharmacyPhone {get;set;}
+    public string? PharmacyPhone {get;set;}
     public List<ScheduleMed> ScheduleMeds { get; set; } = new List<ScheduleMed>();
 
     public int? UserId {get; set;}

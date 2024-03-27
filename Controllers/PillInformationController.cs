@@ -68,12 +68,12 @@ public class PillInformationController : ControllerBase
 
             var containerToFill = 0;
             var newLargestMedId = 0;
-            if(currentMeds.Count() != 0) // first med being added to machine
+            if(currentMeds.Any()) // not first med being added to machine
             {
                 //get all current medication ids
                 var currentMedIds = currentMeds.GroupBy(entity => entity.ContainerId) // Group by ContainerId
                     .Select(group => group.OrderByDescending(entity => entity.Id).First()) // Select the highest from each group
-                    .Select(entity => entity.MedId).ToList();
+                    .Select(entity => entity.MedId);
 
                 //keep only the ones that are non-zero
                 var nonZeroMedIds = _dbContext.Medications.Where(meds => currentMedIds.Contains(meds.Id) && meds.NumPills > 0).ToList().Select(entity => entity.Id);
