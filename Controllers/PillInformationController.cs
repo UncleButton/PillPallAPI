@@ -60,29 +60,37 @@ public class PillInformationController : ControllerBase
         Console.WriteLine(newMedication.Id);
         
         //medication is new
-        if(newMedication.Id == -1){
+        if(newMedication.Id == 0){
             var containersIds = _dbContext.Containers.Select(container => container.Id).ToList();
             Console.WriteLine("containers count: " + containersIds.Count());
 
-            //get all current medication ids
-            var currentMedIds = _dbContext.ContainerMedMaps.GroupBy(entity => entity.ContainerId) // Group by ContainerId
-                .Select(group => group.OrderByDescending(entity => entity.Id).First()) // Select the highest from each group
-                .Select(entity => entity.MedId).ToList();
+            var currentMeds = _dbContext.ContainerMedMaps;
 
-            //keep only the ones that are non-zero
-            var nonZeroMedIds = _dbContext.Medications.Where(meds => currentMedIds.Contains(meds.Id) && meds.NumPills > 0).ToList().Select(entity => entity.Id);
+            var containerToFill = 0;
+            var newLargestMedId = 0;
+            if(currentMeds.Count() != 0) // first med being added to machine
+            {
+                //get all current medication ids
+                var currentMedIds = currentMeds.GroupBy(entity => entity.ContainerId) // Group by ContainerId
+                    .Select(group => group.OrderByDescending(entity => entity.Id).First()) // Select the highest from each group
+                    .Select(entity => entity.MedId).ToList();
 
-            //get containers that are currently in use
-            var containersInUse = _dbContext.ContainerMedMaps.Where(entity => nonZeroMedIds.Contains(entity.MedId)).Select(entity => entity.ContainerId);
+                //keep only the ones that are non-zero
+                var nonZeroMedIds = _dbContext.Medications.Where(meds => currentMedIds.Contains(meds.Id) && meds.NumPills > 0).ToList().Select(entity => entity.Id);
 
-            //get a container NOT in use
-            var containerToFill = _dbContext.Containers.Where(entity => !containersInUse.Contains(entity.Id)).Select(entity => entity.Id).First();
+                //get containers that are currently in use
+                var containersInUse = _dbContext.ContainerMedMaps.Where(entity => nonZeroMedIds.Contains(entity.MedId)).Select(entity => entity.ContainerId);
 
-            //get the current largest medication id
-            var largestMed = _dbContext.Medications.OrderByDescending(entity => entity.Id).FirstOrDefault();
+                //get a container NOT in use
+                containerToFill = _dbContext.Containers.Where(entity => !containersInUse.Contains(entity.Id)).Select(entity => entity.Id).First();
 
-            //incrememnt that to get what our new med id will be
-            var newLargestMedId = largestMed == null ? 0 : largestMed.Id;
+                //get the current largest medication id
+                var largestMed = _dbContext.Medications.OrderByDescending(entity => entity.Id).FirstOrDefault();
+
+                //incrememnt that to get what our new med id will be
+                newLargestMedId = largestMed == null ? 0 : largestMed.Id;
+            }
+            
             newLargestMedId++;
 
             //create new med map that maps one of the unused containers with the new med id
@@ -94,7 +102,7 @@ public class PillInformationController : ControllerBase
             //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
             try {
                 ArduinoCommunicator comm = new ArduinoCommunicator();
-                comm.SendRequest(1, new int[]{containerToFill});
+                comm.Refill(containerToFill);
             }
             catch(Exception e){
                 return BadRequest("Failed to communicate with machine. " + e.Message);
@@ -127,7 +135,7 @@ public class PillInformationController : ControllerBase
         //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
             try {
                 ArduinoCommunicator comm = new ArduinoCommunicator();
-                comm.SendRequest(1, new int[]{ refillObject.ContainerId});
+                comm.Refill(refillObject.ContainerId);
             }
             catch(Exception e){
                 return BadRequest("Failed to communicate with machine. " + e.Message);

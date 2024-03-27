@@ -87,4 +87,14 @@ public class ArduinoCommunicator
 
         return failedAttempts < MAX_TRANSFER_ATTEMPTS;
     }
+
+    public bool Refill(int containerId){
+        //refill is of the form: (1, [containerId])
+        return SendRequest(1, new int[]{containerId});
+    }
+
+    public bool Dispense(int[] dispenseArray){
+        //refill is of the form: (2, [num from container 0, num from container 1..., num from container 5])
+        return SendRequest(2, dispenseArray);
+    }
 }
