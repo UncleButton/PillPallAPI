@@ -22,7 +22,7 @@ public class DispenseController : ControllerBase
     public IActionResult DispenseMedication([FromBody] int[] dispenseList)
     {
         ArduinoCommunicator comm = new ArduinoCommunicator();
-        comm.SendRequest(2, new int[] {135,136,137,138,139,140});
+        comm.SendRequest(2, new int[] {1,0,2,1,0,1});
         //JUSTIN'S AREA
 
         //PUT LOGIC HERE THAT DOES THE ACTUAL DISPENSING/USES YOUR DEVICE CONTROLLERS

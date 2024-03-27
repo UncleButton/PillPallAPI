@@ -69,8 +69,8 @@ public class ArduinoCommunicator
                 if (result == MESSAGE_SUCCESS)
                 {
                     Console.WriteLine("Received correct message");
-                    while (sp.BytesToRead == 0) ;
-                    Console.WriteLine(sp.ReadLine());
+                    // while (sp.BytesToRead == 0) ;
+                    // Console.WriteLine(sp.ReadLine());
                     break;
                 }
                 else

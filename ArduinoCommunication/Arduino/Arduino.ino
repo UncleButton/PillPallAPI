@@ -26,12 +26,15 @@ const byte PI_REFILL_COMPLETE = 2;
 const byte ULTRASONIC_SUCCESS = 3;
 //  Bad data from ultrasonic sensor, read again
 const byte ULTRASONIC_FAIL = -1;
+
 //  The speed of sound is 343 m/s. This value is the same thing, just in terms of cm and microseconds, and dividing by 2 because the sensor reads the
 //  time it takes for the ultrasonic signal to travel double the actual distance
 const float ULTRASONIC_SPEED_CM_PER_US = 0.0343 / 2;
+const float CM_FROM_ULTRASONIC_TO_CARTRIDGE = 8.1977;
+const int MS_FROM_ULTRASONIC_TO_CARTRIDGE = 7850;
+const float ACTUATOR_SPEED_CM_PER_SECOND = CM_FROM_ULTRASONIC_TO_CARTRIDGE / MS_FROM_ULTRASONIC_TO_CARTRIDGE;
 
 // The states of the machine, starting with the initialize state
-const byte STATE_INITIALIZE = 0;
 const byte STATE_READ_DATA = 1;
 const byte STATE_SELECT_CARTRIDGE = 2;
 const byte STATE_ROTATE_REFILL = 3;
@@ -40,6 +43,8 @@ const byte STATE_ROTATE_ULTRASONIC = 9;
 const byte STATE_READ_ULTRASONIC = 10;
 const byte STATE_ROTATE_TO_VACUUM = 11;
 const byte STATE_LOWER_HOSE = 12;
+const byte STATE_RAISE_HOSE = 13;
+const byte STATE_DROP_PILL = 14;
 const byte STATE_DONE = 20;
 
 // Pins on the arduino and what they're physically connected to
@@ -54,8 +59,8 @@ const byte PIN_ULTRASONIC_TRIG = 10;
 const byte PIN_ULTRASONIC_ECHO = 11;
 
 // These are specifically in relation to operation of the NEMA Stepper Motor, which spins the base that the cartridges are on
-const byte DISPENSE_DELAY_TIME = 200;    //  Delay time needed between switching the nema on and off when dispensing
-const byte RESET_DELAY_TIME = 3000;      //  Delay time needed for resetting the plate to 0
+const int DISPENSE_DELAY_TIME = 400;    //  Delay time needed between switching the nema on and off when dispensing
+const int RESET_DELAY_TIME = 400;      //  Delay time needed for resetting the plate to 0
 const byte NEMA_CLOCKWISE = 0;
 const byte NEMA_COUNTER_CLOCKWISE = 1;
 const int LITTLE_GEAR_TEETH = 12;
@@ -73,17 +78,17 @@ const int ULTRASONIC_SENSOR_LOCATION = NEMA_ACTUAL_STEPS_PER_REV - HALF_DISTANCE
 byte *data;             // The array that will hold the data, allocated when it is read in
 byte request = 0;       // The type of request received fromt the pi
 byte cartridges = 0;    // The number of cartridges, used to allocate the data array
-byte currentState = STATE_INITIALIZE;   // Set current state to initializing, cannot be modified outside of "loop"
-byte nextState = STATE_READ_DATA;       // The next state in the machine, can be modified outside of "loop"
+byte currentState = STATE_READ_DATA;    // Current state of the machine, cannot be modified outside of "loop." Start at read data state
+byte nextState = STATE_READ_DATA;       // The next state in the machine, CAN be modified outside of "loop"
 
-byte nemaDirection = 1;     // 1 is counter clockwise, 0 is clockwise
+byte nemaDirection = 0;     // 1 is counter clockwise, 0 is clockwise
 int nemaCurrentPos = 0;     // Current position of the base plate
-int initialPosition = 0;
 
-byte currentCatrtridge = 0; // The cartridge of medication currently being dispensed
+byte currentCartridge = 0; // The cartridge of medication currently being dispensed
 
-int ultrasonicMicroTime = 0;    //  Time it took for the ultrasonic sensor to receieve the echo back
-int distanceInCm = 0;   //  The distance calculated from the time it took to receieve the echo
+float ultrasonicMicroTime = 0;    //  Time it took for the ultrasonic sensor to receieve the echo back
+float distanceInCm = 0;   //  The distance calculated from the time it took to receieve the echo
+int timeToLower = 0;  // Time in milliseconds for the hose to be lowered into the cartridge
 
 // Setup function, runs once when the Arduino first powers on, configuring pins and serial communication
 void setup()
@@ -106,8 +111,11 @@ void setup()
     //  Write LOW to pins so they start off
     digitalWrite(PIN_ACTUATOR_DOWN, LOW);
     digitalWrite(PIN_ACTUATOR_UP, HIGH);
-    delay(1000);
+    delay(2500);
     digitalWrite(PIN_ACTUATOR_UP, LOW);
+    // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    // delay(1500);
+    // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
 }
 
 //  This reads in the data coming in on the serial port. It will determine what type of request is being made, allocate the appropriate amount of
@@ -159,7 +167,6 @@ void resetPlate()
         digitalWrite(PIN_NEMA_STEP, LOW);
         delayMicroseconds(RESET_DELAY_TIME);
     }
-    // delay(1000);
     for (int x = 0; x < 350; x++)
     {
         digitalWrite(PIN_NEMA_STEP, HIGH);
@@ -167,7 +174,6 @@ void resetPlate()
         digitalWrite(PIN_NEMA_STEP, LOW);
         delayMicroseconds(RESET_DELAY_TIME);
     }
-    // delay(1000);
 }
 
 //  This takes in whatever the next location of the plate needs to be rotated to, for it to be under the vacuum. It looks at its last known location
@@ -221,9 +227,9 @@ void spinPlate(int nextLocation)
 void selectCartridge()
 {
     //  Loop through the data array to find the next cartridge/medication that needs to be dispensed
-    while (currentCatrtridge < cartridges && data[currentCatrtridge] == 0)
-        currentCatrtridge++;
-    if (currentCatrtridge < cartridges)
+    while (currentCartridge < cartridges && data[currentCartridge] == 0)
+        currentCartridge++;
+    if (currentCartridge < cartridges)
         // Determine the next state based off which type of request was received
         nextState = request == REQUEST_REFILL ? STATE_ROTATE_REFILL : STATE_ROTATE_ULTRASONIC;
     else
@@ -233,7 +239,6 @@ void selectCartridge()
 void readUltrasonic()
 {
     int ultrasonicTimes[5];
-    int maxTime = 0;
     for (int i = 0; i < 5; i++)
     {
         digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
@@ -242,23 +247,46 @@ void readUltrasonic()
         delayMicroseconds(10);
         digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
         ultrasonicTimes[i] = pulseIn(PIN_ULTRASONIC_ECHO, HIGH);
-        if (ultrasonicTimes[i] > maxTime)
-            maxTime = ultrasonicTimes[i];
         delay(50);
     }
-    byte matches = 0;
+    int sum = 0;
     for (int i = 0; i < 5; i++)
+        sum += ultrasonicTimes[i];
     {
-        if (maxTime == ultrasonicTimes[i])
-            matches++;
-    }
-    if (matches >= 3)
-    {
-        ultrasonicMicroTime = maxTime;
+        ultrasonicMicroTime = sum / 5;
         nextState = STATE_ROTATE_TO_VACUUM;
-        Serial.print(maxTime);
-        Serial.print(" ");
+        // Serial.println(ultrasonicMicroTime);
+        // Serial.print(" ");
     }
+}
+
+void lowerHose()
+{
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timeToLower);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    nextState = STATE_RAISE_HOSE;
+}
+
+void raiseHose()
+{
+    digitalWrite(PIN_VACUUM, HIGH);
+    digitalWrite(PIN_ACTUATOR_UP, HIGH);
+    delay(timeToLower);
+    digitalWrite(PIN_ACTUATOR_UP, LOW);
+    nextState = STATE_DROP_PILL;
+}
+
+void dropPill()
+{
+    spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + HALF_DISTANCE_BETWEEN_CARTRIDGES);
+    digitalWrite(PIN_VACUUM, LOW);
+    delay(5000);
+    data[currentCartridge]--;
+    if (data[currentCartridge] == 0)
+        nextState = STATE_SELECT_CARTRIDGE;
+    else
+        nextState = STATE_ROTATE_TO_VACUUM;
 }
 
 // Arduino runs in an infinite loop through this function, which is where the main state machine of this device will be
@@ -266,12 +294,6 @@ void loop()
 {
     switch (currentState)
     {
-        // The initialization just completed in the setup method, so all we do here is switch to the next state
-        case STATE_INITIALIZE:
-        {
-            currentState = nextState;
-            break;
-        }
         // In the read data state, we wait until there is data available on the serial port and then try to read it on
         case STATE_READ_DATA:
         {
@@ -280,7 +302,6 @@ void loop()
                 //  Read the data, if it was a success then nextState will have changed to either refill or dispense, otherwise it is still the
                 //  read data state and we stay in read data
                 byte success = readData();
-                currentState = nextState;
 
                 //  Send response back to pi, letting it know whether the data we got was valid
                 Serial.println(success);
@@ -288,24 +309,21 @@ void loop()
                 //  Reset the plate so that cartidge 0 is underneath the vacuum hose
                 resetPlate();
                 // spinPlate(NEMA_HALF_REV_LOCATION);
-                currentCatrtridge = 0;
+                currentCartridge = 0;
             }
             break;
         }
         case STATE_SELECT_CARTRIDGE:
         {
-            spinPlate(CARTRIDGE_LOCATIONS[2]);
             selectCartridge();
-            currentState = nextState;
             break;
         }
         //  This is the beginning of the refill
         case STATE_ROTATE_REFILL:
         {
             spinPlate(REFILL_LOCATION);
-            delay(1000);
             Serial.println(CARTRIDGE_READY_FOR_REFILL);
-            currentState = STATE_REFILL_WAIT;
+            nextState = STATE_REFILL_WAIT;
             break;
         }
         case STATE_REFILL_WAIT:
@@ -318,52 +336,57 @@ void loop()
                 {
                     nextState = STATE_DONE;
                 }
-                currentState = nextState;
             }
             break;
         }
         //  Rotate to where ultrasonic sensor is and read in data
         case STATE_ROTATE_ULTRASONIC:
         {
-            initialPosition = nemaCurrentPos;
-            spinPlate(initialPosition + (HALF_DISTANCE_BETWEEN_CARTRIDGES * 1.2));
-            delay(5000);
+            spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + (HALF_DISTANCE_BETWEEN_CARTRIDGES * 1.2));
             nextState = STATE_READ_ULTRASONIC;
-            currentState = nextState;
             break;
         }
         case STATE_READ_ULTRASONIC:
         {
             readUltrasonic();
-            currentState = nextState;
             break;
         }
         case STATE_ROTATE_TO_VACUUM:
         {
-            spinPlate(initialPosition);
+            spinPlate(CARTRIDGE_LOCATIONS[currentCartridge]);
             distanceInCm = ultrasonicMicroTime * ULTRASONIC_SPEED_CM_PER_US;
-            Serial.println(distanceInCm);
-            currentState = STATE_LOWER_HOSE;
+            timeToLower = distanceInCm / ACTUATOR_SPEED_CM_PER_SECOND;
+            // Serial.print(ultrasonicMicroTime);
+            // Serial.print(" ");
+            // Serial.print(distanceInCm);
+            // Serial.print(" ");
+            nextState = STATE_LOWER_HOSE;
             break;
         }
         case STATE_LOWER_HOSE:
         {
-            digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
-            delay(7750);
-            digitalWrite(PIN_ACTUATOR_DOWN, LOW);
-            // digitalWrite(PIN_VACUUM, HIGH);
-            digitalWrite(PIN_ACTUATOR_UP, HIGH);
-            delay(9000);
-            digitalWrite(PIN_ACTUATOR_UP, LOW);
-            spinPlate(CARTRIDGE_LOCATIONS[2] + HALF_DISTANCE_BETWEEN_CARTRIDGES);
-            digitalWrite(PIN_VACUUM, LOW);
-            currentState = STATE_DONE;
+            lowerHose();
+            // Serial.println(timeToLower);
+            break;
+        }
+        case STATE_RAISE_HOSE:
+        {
+            raiseHose();
+            break;
+        }
+        case STATE_DROP_PILL:
+        {
+            dropPill();
             break;
         }
         case STATE_DONE:
         {
+            //  Reset the plate so that cartidge 0 is underneath the vacuum hose
+            resetPlate();
+            nextState = STATE_READ_DATA;
             break;
         }
     }
-    delay(500);    // REMOVE THIS DELAY FOR FINAL PRODUCT, ONLY SLOWS THINGS DOWN FOR DEBUGGING
+    currentState = nextState;
+    delay(50);    // REMOVE THIS DELAY FOR FINAL PRODUCT, ONLY SLOWS THINGS DOWN FOR DEBUGGING
 }
