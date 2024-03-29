@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -9,9 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace PillPallAPI.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    partial class MyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240308184250_add email to schedule and make dispense log fields nullable")]
+    partial class addemailtoscheduleandmakedispenselogfieldsnullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.0");
@@ -93,9 +96,8 @@ namespace PillPallAPI.Migrations
                     b.Property<int>("NumPills")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("PIN")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<int?>("PIN")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("PharmacyAddr1")
                         .HasColumnType("TEXT");
@@ -106,8 +108,8 @@ namespace PillPallAPI.Migrations
                     b.Property<string>("PharmacyCity")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("PharmacyPhone")
-                        .HasColumnType("TEXT");
+                    b.Property<int?>("PharmacyPhone")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("PharmacyState")
                         .HasColumnType("TEXT");
@@ -140,16 +142,11 @@ namespace PillPallAPI.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("PIN")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<int?>("PIN")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("UserId")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("notificationEmail")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

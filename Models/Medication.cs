@@ -12,7 +12,7 @@ public class Medication
     public string? Description {get; set;}
     public required int NumPills {get;set;}
     public required string ExpirationDate {get;set;}
-    public int? PIN { get; set; }
+    public string PIN { get; set; } = "";
 
     //dosage info
     public int? MaxPillsPerDose {get;set;}
@@ -25,7 +25,7 @@ public class Medication
     public string? PharmacyCity {get;set;}
     public string? PharmacyState {get;set;}
     public string? PharmacyZip {get;set;}
-    public int? PharmacyPhone {get;set;}
+    public string? PharmacyPhone {get;set;}
     public List<ScheduleMed> ScheduleMeds { get; set; } = new List<ScheduleMed>();
 
     public int? UserId {get; set;}

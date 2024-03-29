@@ -11,9 +11,13 @@ public class Schedule
 
     public string Name {get; set;} = "";
 
-    public int? PIN {get; set;}
+    public string PIN {get; set;} = "";
 
-    public List<ScheduleMed> ScheduleMeds { get; set; }
+    public List<ScheduleMed>? ScheduleMeds { get; set; }
 
-    public List<Time> Times { get; set; } = new List<Time>();
+    public List<Time>? Times { get; set; } = new List<Time>();
+
+    public string Days { get; set; } = "";
+
+    public string notificationEmail { get; set; } = "";
 }

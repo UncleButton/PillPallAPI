@@ -1,5 +1,14 @@
 //Britton Bailer, January 2024
 
+//all things dealing with schedules come into the api through this file
+
+/*
+    1. GetSchedules()
+    2. SaveSchedule(schedlueMeds[])
+    3. UpdateSchedule(schedule)
+    4. DeleteSchedule(schedule)
+*/
+
 using System.Net;
 using System.Net.Mail;
 using Microsoft.AspNetCore.Mvc;
@@ -17,91 +26,116 @@ public class ScheduleController : ControllerBase
         _dbContext = dbContext;
     }
 
+    /// <summary>
+    /// Returns a list of all schedules in the database.
+    /// </summary>
+    /// <returns></returns>
     [HttpGet]
     [Route("getSchedules")]
     public IActionResult GetSchedules()
     {        
-        //messageMe();
-        
+        //get all schedules        
         var schedules = _dbContext.Schedules;
-        var scheduleBuses = new List<ScheduleBus>();
 
+        //loop through all schedules
         foreach(Schedule schedule in schedules){
-            var scheduleBus = new ScheduleBus();
-
-            scheduleBus.UserId = schedule.UserId;
-            scheduleBus.Name = schedule.Name;
-            scheduleBus.PIN = schedule.PIN;
-
+            //get scheduleMeds for each of the schedules (and set it on each schedule)
             var scheduleMeds = _dbContext.ScheduleMeds.Where(entity => entity.ScheduleId == schedule.Id).ToList();
-            scheduleBus.ScheduleMeds = scheduleMeds;
+            schedule.ScheduleMeds = scheduleMeds;
 
+            //get times for each of the schedules (and set it on each schedule)
             var timeIds = _dbContext.Times.Where(entity => entity.ScheduleId == schedule.Id).Select(entity => entity.Id).ToList();
             var times = _dbContext.Times.Where(entity => timeIds.Contains(entity.Id)).ToList();
-
-            scheduleBus.Times = times;
-
-            scheduleBuses.Add(scheduleBus);
+            schedule.Times = times;
         }
 
-        Console.WriteLine("Schedules: " + scheduleBuses.Count);
-
-        return Ok(scheduleBuses);
+        //return all schedules
+        return Ok(schedules);
     }
 
+    /// <summary>
+    /// Saves a new schedule passed into this endpoint via the ScheduleMed[] list
+    /// </summary>
+    /// <param name="meds"></param>
+    /// <returns></returns>
     [HttpPost]
     [Route("saveSchedule")]
     public async Task<IActionResult> SaveSchedule([FromBody] ScheduleMed[] meds)
     {     
-        //schedule is new
-        //if(newSchedule.Id == -1){
-            foreach(ScheduleMed med in meds){
-                var existingMed = _dbContext.Medications.Where(medication => med.Medication.Id == medication.Id);
-                if(existingMed.Any())
-                    med.Medication = existingMed.First();
-                
-                var existingSchedule = _dbContext.Schedules.Where(schedule => med.Schedule.Name.Equals(schedule.Name));
-                Console.WriteLine("matching schedules: " + existingSchedule.Count());
-                if(existingSchedule.Any()) {
-                    med.Schedule = existingSchedule.First();
-                    med.ScheduleId = existingSchedule.First().Id;
-                }
-                    
-                _dbContext.ScheduleMeds.Add(med);
-                await _dbContext.SaveChangesAsync();
+        if(meds.Length == 0){
+            return BadRequest();
+        }
+        //get each medication out of the scheduleMed object
+        foreach(ScheduleMed med in meds){
+            //get the reference to the existing medication (if it exists)
+            var existingMed = _dbContext.Medications.Where(medication => med.Medication!.Id == medication.Id);
+            if(existingMed.Any())
+                med.Medication = existingMed.First();
+            
+            //get the referenced schedule if it exists
+            var existingSchedule = _dbContext.Schedules.Where(schedule => med.Schedule!.Name.Equals(schedule.Name));
+
+            if(existingSchedule.Any()) {
+                med.Schedule = existingSchedule.First();
+                med.ScheduleId = existingSchedule.First().Id;
             }
-
-            // foreach(Time time in newSchedule.Times){
-            //     if(!time.DateTime.Equals("nana"))
-            //         _dbContext.Times.Add(time);
-            // }
-            // _dbContext.ScheduleMeds.AddRange(newSchedule.ScheduleMeds);
-        //}
-        //else //schedule is being edited
-        //{
-            //to-do
-        //}
-
-        
+            
+            //add new scheduleMed records (auto adds any nonexistent schedules)
+            _dbContext.ScheduleMeds.Add(med);
+            await _dbContext.SaveChangesAsync();
+        }
         return Ok();
     }
 
-    private void messageMe(){
-        var message = new MailMessage();
-        message.From = new MailAddress("pillpalmachine@outlook.com");
+    /// <summary>
+    /// Updates an existing Schedule
+    /// </summary>
+    /// <param name="schedule"></param>
+    /// <returns></returns>
+    [HttpPost]
+    [Route("updateSchedule")]
+    public async Task<IActionResult> UpdateSchedule([FromBody] Schedule schedule)
+    {     
+        //get reference to exising schedule
+        var existingSchedule = _dbContext.Schedules.Where(entity => entity.Id == schedule.Id).FirstOrDefault();
 
-        message.To.Add(new MailAddress("4407592699@tmomail.net"));
+        //return bad request if no existing schedule
+        if(existingSchedule == null)
+            return BadRequest();
 
-        //message.Subject = "This is my subject";
-        message.Body = "this is the content";
+        existingSchedule.Name = schedule.Name;
+        existingSchedule.PIN = schedule.PIN;
+        existingSchedule.Days = schedule.Days;
+        existingSchedule.notificationEmail = schedule.notificationEmail;
 
-        var client = new SmtpClient("smtp-mail.outlook.com", 587)
-            {
-                Credentials = new NetworkCredential("pillpalmachine@outlook.com", "sxouibditeeflwup"),
-                EnableSsl = true
-            };
-        client.Send(message);
+        //save changes
+        await _dbContext.SaveChangesAsync();
 
+        return Ok();
     }
-    
+
+    /// <summary>
+    /// Deletes an existing schedule
+    /// </summary>
+    /// <param name="schedule"></param>
+    /// <returns></returns>
+    [HttpPost]
+    [Route("deleteSchedule")]
+    public async Task<IActionResult> DeleteSchedule([FromBody] Schedule schedule)
+    {     
+        //get reference to existing schedule
+        var existingSchedule = _dbContext.Schedules.Where(entity => entity.Id == schedule.Id).FirstOrDefault();
+
+        //return bad request if no such schedule was found
+        if(existingSchedule == null)
+            return BadRequest();
+
+        //remove schedule
+        _dbContext.Remove(existingSchedule);
+
+        //save
+        await _dbContext.SaveChangesAsync();
+
+        return Ok();
+    }  
 }
