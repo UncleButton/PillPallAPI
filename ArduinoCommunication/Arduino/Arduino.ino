@@ -92,11 +92,14 @@ float ultrasonicMicroTime = 0;    //  Time it took for the ultrasonic sensor to 
 float distanceInCm = 0;   //  The distance calculated from the time it took to receieve the echo
 int timeToLower = 0;  // Time in milliseconds for the hose to be lowered into the cartridge
 
+byte starts = 0;
+
 // Setup function, runs once when the Arduino first powers on, configuring pins and serial communication
 void setup()
 {
     delay(3000);    // The delay is needed here, otherwise the Arduino starts running code early
     Serial.begin(9600); // Open the serial port for communication
+    byte timmy = 100;
 
     //  Set these pins to output so we can write signals to them
     pinMode(PIN_NEMA_DIRECTION, OUTPUT);
@@ -112,9 +115,64 @@ void setup()
 
     //  Write LOW to pins so they start off
     digitalWrite(PIN_ACTUATOR_DOWN, LOW);
-    digitalWrite(PIN_ACTUATOR_UP, HIGH);
-    delay(2500);
-    digitalWrite(PIN_ACTUATOR_UP, LOW);
+    if (starts == 0)
+    {
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+    delay(timmy);
+    digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+    starts++;
+    }
+    else
+    {
+      spinPlate(5000);
+      spinPlate(0);
+      spinPlate(5000);
+      spinPlate(0);
+      spinPlate(5000);
+      spinPlate(0);
+      spinPlate(5000);
+      spinPlate(0);
+      spinPlate(5000);
+      spinPlate(0);
+      spinPlate(5000);
+      spinPlate(0);
+    }
     // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
     // delay(1500);
     // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
