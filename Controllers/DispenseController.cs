@@ -139,18 +139,20 @@ public class DispenseController : ControllerBase
     [Route("getDispenseLogs")]
     public IActionResult GetDispenseLogs()
     {        
+        var verboseDispenseLogs = new List<VerboseDispenseLog>();
+
         //get all dispense logs in order from most recent to least recent
         var dispenseLogs = _dbContext.DispenseLogs;
 
         if(dispenseLogs.ToList().Count == 0)
-            return BadRequest();
-
-        var verboseDispenseLogs = new List<VerboseDispenseLog>();
+            return Ok(verboseDispenseLogs);
 
         foreach(DispenseLog dispenseLog in dispenseLogs){
-            var verboseDispenseLog = new VerboseDispenseLog();
-            verboseDispenseLog.Timestamp = dispenseLog.Timestamp;
-            verboseDispenseLog.NumPills = dispenseLog.NumPills;
+            var verboseDispenseLog = new VerboseDispenseLog
+            {
+                Timestamp = dispenseLog.Timestamp,
+                NumPills = dispenseLog.NumPills
+            };
 
             var med = _dbContext.Medications.FirstOrDefaultAsync(entity => entity.Id == dispenseLog.MedId);
             verboseDispenseLog.MedName = med.Result == null ? "Error" : med.Result.Name;
