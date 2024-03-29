@@ -172,8 +172,7 @@ public class DispenseController : ControllerBase
     public IActionResult DispenseMedication([FromBody] int[] dispenseList)
     {
         ArduinoCommunicator comm = new ArduinoCommunicator();
-        comm.Dispense(new int[] {135,136,137,138,139,140});
-
+        comm.Dispense(new int[] {1,0,2,1,0,1});
         return Ok();
     }
 

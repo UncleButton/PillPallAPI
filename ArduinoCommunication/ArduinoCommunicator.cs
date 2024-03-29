@@ -26,7 +26,7 @@ public class ArduinoCommunicator
 
         // Set the read and write timeouts to 5 s (probably will be increased or changed depending on the request)
         sp.WriteTimeout = 5000;
-        sp.ReadTimeout = 5000;
+        sp.ReadTimeout = 10000;
 
         // Open the port
         sp.Open();
@@ -79,7 +79,6 @@ public class ArduinoCommunicator
             catch (Exception e) // TimeoutExceptions don't work?...so general one for now
             {
                 Console.WriteLine("Timeout on reading back a success indication");
-                break;
             }
         }
         //  Close the port since we're done with this transaction
