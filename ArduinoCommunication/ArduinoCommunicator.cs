@@ -15,13 +15,16 @@ public static class ArduinoCommunicator
     const byte REQUEST_OFFSET = 6;  // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
     const byte MAX_TRANSFER_ATTEMPTS = 5;   // MAX number of times we try to send the data before determining some failure
     const char MESSAGE_SUCCESS = '0';   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
-    const string PORT_NAME = "COM7";    // This is the port used for the serial communication, CHANGE FOR PI
+    const string PORT_NAME = "/dev/ttyACM0";    // This is the port used for the serial communication, CHANGE FOR PI
+    static int num = 0;
 
     // Create new port with pre-determined port name
     static SerialPort sp = new SerialPort(PORT_NAME, 9600, Parity.None, 8, StopBits.One);
 
     public static void OpenCommunication(){
         if(!sp.IsOpen){
+            Console.WriteLine("Opening communication");
+
             // Set the read and write timeouts to 5 s (probably will be increased or changed depending on the request)
             sp.WriteTimeout = 5000;
             sp.ReadTimeout = 5000;
@@ -39,8 +42,13 @@ public static class ArduinoCommunicator
     // Takes in the request type and the data being sent and sends them as a message to the Arduino
     public static bool SendRequest(int request, int[] data)
     {
-        //open communication before request
-        OpenCommunication();
+        num++;
+        Console.WriteLine("Dispense: " + num);
+        if(!sp.IsOpen){
+            //open communication before request
+            OpenCommunication();
+            return true;
+        }
         
 
         // Message array being sent to Arduino. Needs to be the length of data + 2 so the first byte can hold the request and the length of the
@@ -80,7 +88,17 @@ public static class ArduinoCommunicator
                 if (result == MESSAGE_SUCCESS)
                 {
                     Console.WriteLine("Received correct message");
-                    break;
+                    sp.ReadTimeout = -1;
+                    result = sp.ReadByte();
+                    if (result == MESSAGE_SUCCESS)
+                    {
+                        Console.WriteLine("Dispensed all pills successfully");
+                        break;
+                    }
+                    else {
+                        sp.ReadTimeout = 5000;
+                        return false;
+                    }
                 }
                 else
                 {
@@ -91,11 +109,11 @@ public static class ArduinoCommunicator
             catch (Exception e) // TimeoutExceptions don't work?...so general one for now
             {
                 Console.WriteLine("Timeout on reading back a success indication");
-                break;
             }
         }
-        //  Close the port since we're done with this transaction
-        sp.Close();
+        // //  Close the port since we're done with this transaction
+        // sp.Close();
+        sp.ReadTimeout = 5000;
 
         return failedAttempts < MAX_TRANSFER_ATTEMPTS;
     }
