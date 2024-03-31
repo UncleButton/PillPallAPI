@@ -101,8 +101,7 @@ public class PillInformationController : ControllerBase
 
             //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
             try {
-                ArduinoCommunicator comm = new ArduinoCommunicator();
-                comm.Refill(containerToFill);
+                ArduinoCommunicator.Refill(containerToFill);
             }
             catch(Exception e){
                 return BadRequest("Failed to communicate with machine. " + e.Message);
@@ -134,8 +133,7 @@ public class PillInformationController : ControllerBase
         //move cartrige to opening
         //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
             try {
-                ArduinoCommunicator comm = new ArduinoCommunicator();
-                comm.Refill(refillObject.ContainerId);
+                ArduinoCommunicator.Refill(refillObject.ContainerId);
             }
             catch(Exception e){
                 return BadRequest("Failed to communicate with machine. " + e.Message);

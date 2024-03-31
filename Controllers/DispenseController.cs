@@ -55,8 +55,7 @@ public class DispenseController : ControllerBase
 
         //thank you justin.  Send request to arduino communicator
         try {
-            ArduinoCommunicator comm = new ArduinoCommunicator();
-            comm.Dispense(dispenseArray);
+            ArduinoCommunicator.Dispense(dispenseArray);
         }
         catch(Exception e) {
             return BadRequest("Failed to communicate with device. " + e.Message);
@@ -119,8 +118,7 @@ public class DispenseController : ControllerBase
 
         //thank you justin.  Send request to arduino communicator
         try {
-            ArduinoCommunicator comm = new ArduinoCommunicator();
-            comm.Dispense(dispenseArray);
+            ArduinoCommunicator.Dispense(dispenseArray);
         }
         catch(Exception e) {
             throw new Exception("Failed to communicate with device. " + e.Message);
@@ -171,8 +169,7 @@ public class DispenseController : ControllerBase
     [Route("dispense")]
     public IActionResult DispenseMedication([FromBody] int[] dispenseList)
     {
-        ArduinoCommunicator comm = new ArduinoCommunicator();
-        comm.Dispense(new int[] {1,0,2,1,0,1});
+        ArduinoCommunicator.Dispense(new int[] {0,0,1,0,0,0});
         return Ok();
     }
 
