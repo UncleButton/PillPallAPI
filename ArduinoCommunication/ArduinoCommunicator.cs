@@ -43,8 +43,11 @@ public static class ArduinoCommunicator
     {
         num++;
         Console.WriteLine("Dispense: " + num);
-        //open communication before request
-        OpenCommunication();
+        if(!sp.IsOpen){
+            //open communication before request
+            OpenCommunication();
+            return true;
+        }
         
 
         // Message array being sent to Arduino. Needs to be the length of data + 2 so the first byte can hold the request and the length of the
@@ -84,7 +87,17 @@ public static class ArduinoCommunicator
                 if (result == MESSAGE_SUCCESS)
                 {
                     Console.WriteLine("Received correct message");
-                    break;
+                    sp.ReadTimeout = -1;
+                    result = sp.ReadByte();
+                    if (result == MESSAGE_SUCCESS)
+                    {
+                        Console.WriteLine("Dispensed all pills successfully");
+                        break;
+                    }
+                    else {
+                        sp.ReadTimeout = 5000;
+                        return false;
+                    }
                 }
                 else
                 {
@@ -95,11 +108,11 @@ public static class ArduinoCommunicator
             catch (Exception e) // TimeoutExceptions don't work?...so general one for now
             {
                 Console.WriteLine("Timeout on reading back a success indication");
-                break;
             }
         }
         // //  Close the port since we're done with this transaction
         // sp.Close();
+        sp.ReadTimeout = 5000;
 
         return failedAttempts < MAX_TRANSFER_ATTEMPTS;
     }
