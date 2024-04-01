@@ -114,6 +114,7 @@ public class DispenseController : ControllerBase
 
             //subtract pills from tracked numPills
             updateMedNumPills(scheduleMed.Medication!.Id, scheduleMed.NumPills);
+            Console.WriteLine("Dispensing Container: "+container.ContainerId);
         }
 
         //thank you justin.  Send request to arduino communicator
@@ -172,6 +173,16 @@ public class DispenseController : ControllerBase
         ArduinoCommunicator.Dispense(new int[] {0,0,1,0,0,0});
         return Ok();
     }
+
+    [HttpPost]
+    [Route("handshake")]
+    public IActionResult Handshake()
+    {
+        Console.WriteLine("handshake");
+        ArduinoCommunicator.OpenCommunication();
+        return Ok();
+    }
+
 
     private void updateMedNumPills(int medId, int numPills){
         var med = _dbContext.Medications.Where(entity => entity.Id == medId).First();

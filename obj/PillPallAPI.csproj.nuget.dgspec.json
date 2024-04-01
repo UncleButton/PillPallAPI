@@ -1,19 +1,6 @@
 {
   "format": 1,
   "restore": {
-<<<<<<< HEAD
-    "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj": {}
-  },
-  "projects": {
-    "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj": {
-      "version": "1.0.0",
-      "restore": {
-        "projectUniqueName": "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
-        "projectName": "PillPallAPI",
-        "projectPath": "c:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
-        "packagesPath": "C:\\Users\\E1341515\\.nuget\\packages\\",
-        "outputPath": "c:\\Repos\\PillPallAPI\\obj\\",
-=======
     "/home/pillpal/PillPallAPI/PillPallAPI.csproj": {}
   },
   "projects": {
@@ -25,7 +12,6 @@
         "projectPath": "/home/pillpal/PillPallAPI/PillPallAPI.csproj",
         "packagesPath": "/home/pillpal/.nuget/packages/",
         "outputPath": "/home/pillpal/PillPallAPI/obj/",
->>>>>>> testBranch
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/home/pillpal/.nuget/NuGet/NuGet.Config"

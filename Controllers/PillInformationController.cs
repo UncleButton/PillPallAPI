@@ -149,6 +149,7 @@ public class PillInformationController : ControllerBase
 
         //return
         await _dbContext.SaveChangesAsync();
+        Console.WriteLine("Refilling container: " + refillObject.ContainerId);
         return Ok();
     }
     

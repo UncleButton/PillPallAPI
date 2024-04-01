@@ -45,9 +45,7 @@ public static class ArduinoCommunicator
         num++;
         Console.WriteLine("Dispense: " + num);
         if(!sp.IsOpen){
-            //open communication before request
-            OpenCommunication();
-            return true;
+            return false;
         }
         
 
@@ -109,10 +107,10 @@ public static class ArduinoCommunicator
             catch (Exception e) // TimeoutExceptions don't work?...so general one for now
             {
                 Console.WriteLine("Timeout on reading back a success indication");
+                failedAttempts++;
             }
         }
-        // //  Close the port since we're done with this transaction
-        // sp.Close();
+
         sp.ReadTimeout = 5000;
 
         return failedAttempts < MAX_TRANSFER_ATTEMPTS;
