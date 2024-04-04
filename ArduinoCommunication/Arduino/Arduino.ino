@@ -19,25 +19,18 @@ const byte HEARTBEAT = 2;         // Heartbeat, still communicating with Arduino
 const byte FINISHED_SUCCESS = 3;  // Finished dispensing or refilling correctly
 const byte FINISHED_FAIL = 4;     // Did not successfully dispense or refill
 
-//  Good data from ultrasonic sensor
-const byte ULTRASONIC_SUCCESS = 3;
-//  Bad data from ultrasonic sensor, read again
-const byte ULTRASONIC_FAIL = -1;
-
 //  The speed of sound is 343 m/s. This value is the same thing, just in terms of cm and microseconds, and dividing by 2 because the sensor reads the
 //  time it takes for the ultrasonic signal to travel double the actual distance
 const float ULTRASONIC_SPEED_CM_PER_US = 0.0343 / 2;
 const float CM_FROM_ULTRASONIC_TO_CARTRIDGE = 7.577556;
-const float MAX_DISTANCE = 7.577556;  // MAYBE???
 const int MS_FROM_ULTRASONIC_TO_CARTRIDGE = 7300;
-const float ACTUATOR_SPEED_CM_PER_SECOND = CM_FROM_ULTRASONIC_TO_CARTRIDGE / MS_FROM_ULTRASONIC_TO_CARTRIDGE;
+const int ACTUATOR_SPEED_CM_PER_SECOND = 1; // Found this value on the actuator's Amazon page (should have checked earlier...duh)
 
 // The states of the machine, starting with the initialize state
 const byte STATE_CALIBRATE = 0;
 const byte STATE_READ_DATA = 1;
 const byte STATE_SELECT_CARTRIDGE = 2;
 const byte STATE_ROTATE_REFILL = 3;
-const byte STATE_REFILL_WAIT = 4;
 const byte STATE_ROTATE_ULTRASONIC = 9;
 const byte STATE_READ_ULTRASONIC = 10;
 const byte STATE_ROTATE_TO_VACUUM = 11;
@@ -74,11 +67,12 @@ const int NEMA_HALF_REV_LOCATION = NEMA_ACTUAL_STEPS_PER_REV / 2;
 const int CARTRIDGE_LOCATIONS[] = { 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4, DISTANCE_BETWEEN_CARTRIDGES * 5 };
 const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[4] };
 const int REFILL_LOCATION = HALF_DISTANCE_BETWEEN_CARTRIDGES * 4;
-const int ULTRASONIC_SENSOR_LOCATION = NEMA_ACTUAL_STEPS_PER_REV - HALF_DISTANCE_BETWEEN_CARTRIDGES;
+const int ULTRASONIC_SENSOR_OFFSET = DISTANCE_BETWEEN_CARTRIDGES * 1.1;
 
 byte *data;                           // The array that will hold the data, allocated when it is read in
 byte request = 0;                     // The type of request received fromt the pi
-byte cartridges = 0;                  // The number of cartridges, used to allocate the data array
+byte dataLength = 0;                  // Data length, used to allocate the data array
+byte numberOfCartridges = 0;                  // The number of cartridges, how many cartridges are in the machine
 byte currentState = STATE_READ_DATA;  // Current state of the machine, cannot be modified outside of "loop." Start at read data state
 byte nextState = STATE_READ_DATA;     // The next state in the machine, CAN be modified outside of "loop"
 
@@ -86,6 +80,7 @@ byte nemaDirection = 0;  // 1 is counter clockwise, 0 is clockwise
 int nemaCurrentPos = 0;  // Current position of the base plate
 
 byte currentCartridge = 0;  // The cartridge of medication currently being dispensed
+byte cartridgeBeingRefilled = 0;  // The cartridge being filled/refilled
 
 byte ultrasonicAttempts = 0;
 float ultrasonicMicroTime = 0;  //  Time it took for the ultrasonic sensor to receieve the echo back
@@ -108,45 +103,68 @@ void setup() {
   //  Set these pins to input so we can read signals from them
   pinMode(PIN_INFRARED, INPUT);
   pinMode(PIN_ULTRASONIC_ECHO, INPUT);
+  pinMode(PIN_LIGHT_SENSOR, INPUT);
 
   //  Write LOW to pins so they start off
-  // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+  digitalWrite(PIN_ACTUATOR_DOWN, LOW);
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
   delay(3000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
   // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
   // delay(700);
   // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+  // while (true)
+  // {
+  //   Serial.print(digitalRead(PIN_LIGHT_SENSOR));
+  //   delay(1000);
+  // }
 }
 
 //  This reads in the data coming in on the serial port. It will determine what type of request is being made, allocate the appropriate amount of
 //  space in memory to store the data, and determine the next state in the state machine. If the data is valid, it returns a "valid" indication,
 //  otherwise it returns "invalid."
 byte readData() {
-  //  Read in the information byte, and split it into the request and cartridges
+  //  Read in the information byte, and split it into the request and dataLength
   byte info = 0;
   Serial.readBytes(&info, 1);
   request = (info & 0b11000000) >> INFO_REQUEST_OFFSET;
-  cartridges = info & 0b00111111;
+  dataLength = info & 0b00111111;
 
   // Need to add the info byte and data bytes to check against the checksum
   byte sum = info;
 
-  // Allocate <cartridges> bytes of memory for the data, then read the data in and sum it
-  data = malloc(cartridges);
-  Serial.readBytes(data, cartridges);
-  for (int i = 0; i < cartridges; i++)
+  // Allocate <dataLength> bytes of memory for the data, then read the data in and sum it
+  data = malloc(dataLength);
+  Serial.readBytes(data, dataLength);
+  for (int i = 0; i < dataLength; i++)
     sum += data[i];
 
   // Read in the checkSum and see if it matches the sum of the data given
   byte checkSum = 0;
   Serial.readBytes(&checkSum, 1);
   //  As long as the check sums match AND the request is either a valid dispense request or a refill request
-  if (sum == checkSum && (request == REQUEST_DISPENSE && cartridges == EXPECTED_DISPENSE_LENGTH || request == REQUEST_REFILL)) {
-    //  Set the next state to be selecting the cartridge
-    nextState = STATE_SELECT_CARTRIDGE;
+  if (sum == checkSum)
+  {
+    if (request == REQUEST_DISPENSE && dataLength == EXPECTED_DISPENSE_LENGTH)
+    {
+      //  Set the next state to be selecting the cartridge
+      numberOfCartridges = dataLength;
+      nextState = STATE_SELECT_CARTRIDGE;
+    }
+    else if (request == REQUEST_REFILL)
+    {
+      //  Set the next state to rotating the cartridge being refilled
+      cartridgeBeingRefilled = data[0];
+      nextState = STATE_ROTATE_REFILL;
+    }
+    else
+    {
+      // The request is not recognized
+      return RECEIVED_INVALID_MESSAGE;
+    }
     return RECEIVED_VALID_MESSAGE;
-  } else {  //  The checksums did not match so the message is invalid
+  }
+  else {  //  The checksums did not match so the message is invalid
     return RECEIVED_INVALID_MESSAGE;
   }
 }
@@ -155,15 +173,16 @@ byte readData() {
 //  there is an infrared sensor that will detect this strip of tape. The base will keep spinning until the sensor detects the tape, and then stops
 //  spinning. The sensor and tape have been placed such that, when it stops, cartridge 0 will be in the correct place.
 void resetPlate() {
-  int count = 0;
-  while (digitalRead(PIN_INFRARED) && count <= NEMA_ACTUAL_STEPS_PER_REV) {
+  spinPlate(0);
+  int stepsTaken = 0;
+  while (digitalRead(PIN_INFRARED) && stepsTaken <= NEMA_ACTUAL_STEPS_PER_REV) {
     digitalWrite(PIN_NEMA_STEP, HIGH);
     delayMicroseconds(RESET_DELAY_TIME);
     digitalWrite(PIN_NEMA_STEP, LOW);
     delayMicroseconds(RESET_DELAY_TIME);
-    count++;
+    stepsTaken++;
   }
-  if (count >= NEMA_ACTUAL_STEPS_PER_REV) {
+  if (stepsTaken >= NEMA_ACTUAL_STEPS_PER_REV) {
     Serial.print(FINISHED_FAIL);
     nextState = STATE_READ_DATA;
   }
@@ -173,6 +192,7 @@ void resetPlate() {
   //   digitalWrite(PIN_NEMA_STEP, LOW);
   //   delayMicroseconds(RESET_DELAY_TIME);
   // }
+  nemaCurrentPos = 0;
   currentCartridge = 0;
 }
 
@@ -219,13 +239,13 @@ void spinPlate(int nextLocation) {
   return;
 }
 
+//  This function loops through the data array to determine which cartridge to rotate to next.
 void selectCartridge() {
-  //  Loop through the data array to find the next cartridge/medication that needs to be dispensed
-  while (currentCartridge < cartridges && data[currentCartridge] == 0)
+  while (currentCartridge < numberOfCartridges && data[currentCartridge] == 0)
     currentCartridge++;
-  if (currentCartridge < cartridges)
+  if (currentCartridge < numberOfCartridges)
     // Determine the next state based off which type of request was received
-    nextState = request == REQUEST_REFILL ? STATE_ROTATE_REFILL : STATE_ROTATE_ULTRASONIC;
+    nextState = STATE_ROTATE_ULTRASONIC;
   else
     nextState = STATE_DONE;
 }
@@ -245,9 +265,9 @@ void readUltrasonic() {
   for (int i = 0; i < 5; i++)
     sum += ultrasonicTimes[i];
 
-  ultrasonicMicroTime = sum / 5;
+  ultrasonicMicroTime = sum / 5.0;
   distanceInCm = ultrasonicMicroTime * ULTRASONIC_SPEED_CM_PER_US;
-  if (distanceInCm < MAX_DISTANCE)
+  if (distanceInCm < CM_FROM_ULTRASONIC_TO_CARTRIDGE)
     nextState = STATE_ROTATE_TO_VACUUM;
   // Serial.println(ultrasonicMicroTime);
   // Serial.print(" ");
@@ -294,7 +314,7 @@ void loop() {
         }
         Serial.print("avg time is: ");
         Serial.println(times / 50);
-        // timeToMoveActuator = MAX_DISTANCE / ACTUATOR_SPEED_CM_PER_SECOND;
+        // timeToMoveActuator = CM_FROM_ULTRASONIC_TO_CARTRIDGE / ACTUATOR_SPEED_CM_PER_SECOND;
         // lowerHose();
         // delay(2000);
         // raiseHose();
@@ -315,7 +335,6 @@ void loop() {
           //  Reset the plate so that cartidge 0 is underneath the vacuum hose
           if (digitalRead(PIN_INFRARED))
             resetPlate();
-          // spinPlate(NEMA_HALF_REV_LOCATION);
         }
         break;
       }
@@ -327,14 +346,14 @@ void loop() {
     //  This is the beginning of the refill
     case STATE_ROTATE_REFILL:
       {
-        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + 5);
+        spinPlate(CARTRIDGE_LOCATIONS[cartridgeBeingRefilled]);
         nextState = STATE_DONE;
         break;
       }
     //  Rotate to where ultrasonic sensor is and read in data
     case STATE_ROTATE_ULTRASONIC:
       {
-        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + (DISTANCE_BETWEEN_CARTRIDGES * 1.1));
+        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + ULTRASONIC_SENSOR_OFFSET);
         nextState = STATE_READ_ULTRASONIC;
         break;
       }
@@ -377,7 +396,7 @@ void loop() {
       {
         dropPill();
         //  Reset the plate so that cartidge 0 is underneath the vacuum hose
-        if (currentCartridge >= cartridges and digitalRead(PIN_INFRARED))
+        if (currentCartridge >= numberOfCartridges and digitalRead(PIN_INFRARED))
           resetPlate();
         break;
       }
