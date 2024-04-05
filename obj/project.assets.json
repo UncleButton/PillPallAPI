@@ -2390,24 +2390,26 @@
     ]
   },
   "packageFolders": {
-    "/home/pillpal/.nuget/packages/": {}
+    "C:\\Users\\E1341515\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/pillpal/PillPallAPI/PillPallAPI.csproj",
+      "projectUniqueName": "C:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
       "projectName": "PillPallAPI",
-      "projectPath": "/home/pillpal/PillPallAPI/PillPallAPI.csproj",
-      "packagesPath": "/home/pillpal/.nuget/packages/",
-      "outputPath": "/home/pillpal/PillPallAPI/obj/",
+      "projectPath": "C:\\Repos\\PillPallAPI\\PillPallAPI.csproj",
+      "packagesPath": "C:\\Users\\E1341515\\.nuget\\packages\\",
+      "outputPath": "C:\\Repos\\PillPallAPI\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/home/pillpal/.nuget/NuGet/NuGet.Config"
+        "C:\\Users\\E1341515\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net7.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -2476,16 +2478,8 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/opt/dotnet/sdk/7.0.405/RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.400\\RuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "Undefined",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Problem reading the cache file /home/pillpal/PillPallAPI/obj/project.nuget.cache : Invalid property identifier character: <. Path 'version', line 3, position 0."
-    }
-  ]
+  }
 }

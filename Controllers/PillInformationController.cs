@@ -104,7 +104,7 @@ public class PillInformationController : ControllerBase
                 ArduinoCommunicator.Refill(containerToFill);
             }
             catch(Exception e){
-                return BadRequest("Failed to communicate with machine. " + e.Message);
+                //return BadRequest("Failed to communicate with machine. " + e.Message);
             }
 
             //set new medication id and save both the medication and the container med map (so we know which container the medication is in)
@@ -132,16 +132,16 @@ public class PillInformationController : ControllerBase
     {
         //move cartrige to opening
         //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
-            try {
-                ArduinoCommunicator.Refill(refillObject.ContainerId);
-            }
-            catch(Exception e){
-                return BadRequest("Failed to communicate with machine. " + e.Message);
-            }
+        try {
+            ArduinoCommunicator.Refill(refillObject.ContainerId);
+        }
+        catch(Exception e){
+            return BadRequest("Failed to communicate with machine. " + e.Message);
+        }
 
         //add pills to medication
-        if(refillObject.Medication != null && refillObject.Medication.Id != -1 && refillObject.Qty > 0){
-            var refillMedication = await _dbContext.Medications.Where(entity => entity.Id == refillObject.Medication.Id).FirstOrDefaultAsync();
+        if(refillObject.MedicationId != -1 && refillObject.Qty > 0){
+            var refillMedication = await _dbContext.Medications.Where(entity => entity.Id == refillObject.MedicationId).FirstOrDefaultAsync();
             refillMedication!.NumPills += refillObject.Qty;
         } else {
             return BadRequest("Something went wrong!");
