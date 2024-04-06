@@ -1,3 +1,7 @@
+#include <VL53L1X.h>
+
+#include <Wire.h>
+
 // Arduino.ino
 
 // This is the code that will go on the Arduino. It will take in the request from the ArduinoCommunicator and control the motors, vacuum, sensors,
@@ -22,8 +26,8 @@ const byte FINISHED_FAIL = 4;     // Did not successfully dispense or refill
 //  The speed of sound is 343 m/s. This value is the same thing, just in terms of cm and microseconds, and dividing by 2 because the sensor reads the
 //  time it takes for the ultrasonic signal to travel double the actual distance
 const float ULTRASONIC_SPEED_CM_PER_US = 0.0343 / 2;
-const float CM_FROM_ULTRASONIC_TO_CARTRIDGE = 7.577556;
-const int MS_FROM_ULTRASONIC_TO_CARTRIDGE = 7300;
+const float CM_FROM_ULTRASONIC_TO_CARTRIDGE = 5.7;
+// const int MS_FROM_ULTRASONIC_TO_CARTRIDGE = 7300;
 const int ACTUATOR_SPEED_CM_PER_SECOND = 1; // Found this value on the actuator's Amazon page (should have checked earlier...duh)
 
 // The states of the machine, starting with the initialize state
@@ -51,7 +55,7 @@ const byte PIN_ULTRASONIC_ECHO = 10;
 const byte PIN_LIGHT_SENSOR = 11;
 
 // These are specifically in relation to operation of the NEMA Stepper Motor, which spins the base that the cartridges are on
-const int DISPENSE_DELAY_TIME = 400;  //  Delay time needed between switching the nema on and off when dispensing
+const int DISPENSE_DELAY_TIME = 200;  //  Delay time needed between switching the nema on and off when dispensing
 const int RESET_DELAY_TIME = 400;     //  Delay time needed for resetting the plate to 0
 const byte NEMA_CLOCKWISE = 0;
 const byte NEMA_COUNTER_CLOCKWISE = 1;
@@ -64,10 +68,10 @@ const float NEMA_ACTUAL_STEPS_PER_REV = ((float)BIG_GEAR_TEETH / LITTLE_GEAR_TEE
 const float HALF_DISTANCE_BETWEEN_CARTRIDGES = NEMA_ACTUAL_STEPS_PER_REV / (EXPECTED_DISPENSE_LENGTH * 2);
 const float DISTANCE_BETWEEN_CARTRIDGES = HALF_DISTANCE_BETWEEN_CARTRIDGES * 2;
 const int NEMA_HALF_REV_LOCATION = NEMA_ACTUAL_STEPS_PER_REV / 2;
-const int CARTRIDGE_LOCATIONS[] = { 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4, DISTANCE_BETWEEN_CARTRIDGES * 5 };
-const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[4] };
+const int CARTRIDGE_LOCATIONS[] = { DISTANCE_BETWEEN_CARTRIDGES * 5, 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4 };
+const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[5], CARTRIDGE_LOCATIONS[0], CARTRIDGE_LOCATIONS[1], CARTRIDGE_LOCATIONS[2], CARTRIDGE_LOCATIONS[3], CARTRIDGE_LOCATIONS[4] };
 const int REFILL_LOCATION = HALF_DISTANCE_BETWEEN_CARTRIDGES * 4;
-const int ULTRASONIC_SENSOR_OFFSET = DISTANCE_BETWEEN_CARTRIDGES * 1.1;
+const int ULTRASONIC_SENSOR_OFFSET = DISTANCE_BETWEEN_CARTRIDGES * 0.9;
 
 byte *data;                           // The array that will hold the data, allocated when it is read in
 byte request = 0;                     // The type of request received fromt the pi
@@ -89,7 +93,7 @@ int timeToMoveActuator = 0;     // Time in milliseconds for the hose to be lower
 
 // Setup function, runs once when the Arduino first powers on, configuring pins and serial communication
 void setup() {
-  delay(3000);         // The delay is needed here, otherwise the Arduino starts running code early
+  delay(4000);         // The delay is needed here, otherwise the Arduino starts running code early
   Serial.begin(9600);  // Open the serial port for communication
 
   //  Set these pins to output so we can write signals to them
@@ -108,11 +112,17 @@ void setup() {
   //  Write LOW to pins so they start off
   digitalWrite(PIN_ACTUATOR_DOWN, LOW);
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  delay(3000);
+  delay(4000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
-  // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
-  // delay(700);
-  // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+
+  Serial.println("About to test");
+  currentState = STATE_DONE;
+  digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+  while (digitalRead(PIN_INFRARED)) ;
+  // long time = pulseIn(PIN_INFRARED, LOW);
+  digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+  // Serial.println(time);
+
   // while (true)
   // {
   //   Serial.print(digitalRead(PIN_LIGHT_SENSOR));
@@ -173,7 +183,7 @@ byte readData() {
 //  there is an infrared sensor that will detect this strip of tape. The base will keep spinning until the sensor detects the tape, and then stops
 //  spinning. The sensor and tape have been placed such that, when it stops, cartridge 0 will be in the correct place.
 void resetPlate() {
-  spinPlate(0);
+  spinPlate(0, DISPENSE_DELAY_TIME);
   int stepsTaken = 0;
   while (digitalRead(PIN_INFRARED) && stepsTaken <= NEMA_ACTUAL_STEPS_PER_REV) {
     digitalWrite(PIN_NEMA_STEP, HIGH);
@@ -199,7 +209,7 @@ void resetPlate() {
 //  This takes in whatever the next location of the plate needs to be rotated to, for it to be under the vacuum. It looks at its last known location
 //  and calculates how much it needs to rotate to get that location under the vacuum. It then figures out which is faster, rotating clockwise or
 //  counter clockwise, and then finally actually rotates the plate accordingly.
-void spinPlate(int nextLocation) {
+void spinPlate(int nextLocation, int delayTime) {
   int stepsToGo = nextLocation - nemaCurrentPos;
 
   //  If the rotate is more than half the total steps possible, we can just spin the plate in the opposite direction
@@ -232,9 +242,9 @@ void spinPlate(int nextLocation) {
   digitalWrite(PIN_NEMA_DIRECTION, nemaDirection);
   for (int x = 0; x < stepsToGo; x++) {
     digitalWrite(PIN_NEMA_STEP, HIGH);
-    delayMicroseconds(DISPENSE_DELAY_TIME);
+    delayMicroseconds(delayTime);
     digitalWrite(PIN_NEMA_STEP, LOW);
-    delayMicroseconds(DISPENSE_DELAY_TIME);
+    delayMicroseconds(delayTime);
   }
   return;
 }
@@ -251,26 +261,29 @@ void selectCartridge() {
 }
 
 void readUltrasonic() {
-  int ultrasonicTimes[5];
-  for (int i = 0; i < 5; i++) {
+  float minimum = 5000000;      // CHECK OUT THIS, MAYBE CHANGE MINIMUM FOR SAFETY
+  for (int i = 0; i < 250; i++) {
     digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
     delayMicroseconds(2);
     digitalWrite(PIN_ULTRASONIC_TRIG, HIGH);
     delayMicroseconds(10);
     digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
-    ultrasonicTimes[i] = pulseIn(PIN_ULTRASONIC_ECHO, HIGH);
-    delay(50);
-  }
-  int sum = 0;
-  for (int i = 0; i < 5; i++)
-    sum += ultrasonicTimes[i];
+    ultrasonicMicroTime = pulseIn(PIN_ULTRASONIC_ECHO, HIGH);
+    delay(5);
 
-  ultrasonicMicroTime = sum / 5.0;
-  distanceInCm = ultrasonicMicroTime * ULTRASONIC_SPEED_CM_PER_US;
-  if (distanceInCm < CM_FROM_ULTRASONIC_TO_CARTRIDGE)
-    nextState = STATE_ROTATE_TO_VACUUM;
-  // Serial.println(ultrasonicMicroTime);
-  // Serial.print(" ");
+    spinPlate(nemaCurrentPos + 3, DISPENSE_DELAY_TIME);
+    if (ultrasonicMicroTime < minimum)
+      minimum = ultrasonicMicroTime;
+  }
+
+  distanceInCm = minimum * ULTRASONIC_SPEED_CM_PER_US;
+  if (distanceInCm > CM_FROM_ULTRASONIC_TO_CARTRIDGE)
+  {
+    distanceInCm = CM_FROM_ULTRASONIC_TO_CARTRIDGE;
+  }
+  // distanceInCm = CM_FROM_ULTRASONIC_TO_CARTRIDGE;
+  nextState = STATE_ROTATE_TO_VACUUM;
+  // Serial.println(distanceInCm);
 }
 
 void lowerHose() {
@@ -283,13 +296,13 @@ void lowerHose() {
 void raiseHose() {
   digitalWrite(PIN_VACUUM, HIGH);
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  delay(timeToMoveActuator);
+  delay(timeToMoveActuator + 1500);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
   nextState = STATE_DROP_PILL;
 }
 
 void dropPill() {
-  spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + HALF_DISTANCE_BETWEEN_CARTRIDGES);
+  spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + HALF_DISTANCE_BETWEEN_CARTRIDGES, DISPENSE_DELAY_TIME);
   digitalWrite(PIN_VACUUM, LOW);
   delay(5000);
   data[currentCartridge]--;
@@ -304,20 +317,22 @@ void loop() {
   switch (currentState) {
     case STATE_CALIBRATE:
       {
-        float times = 0;
-        for (int i = 0; i < 50; i++) {
-          readUltrasonic();
-          // if (maxTime < ultrasonicMicroTime)
-          //     maxTime = ultrasonicMicroTime;
-          times += ultrasonicMicroTime;
-          // Serial.println(ultrasonicMicroTime);
-        }
-        Serial.print("avg time is: ");
-        Serial.println(times / 50);
-        // timeToMoveActuator = CM_FROM_ULTRASONIC_TO_CARTRIDGE / ACTUATOR_SPEED_CM_PER_SECOND;
-        // lowerHose();
-        // delay(2000);
-        // raiseHose();
+        resetPlate();
+        spinPlate(CARTRIDGE_LOCATIONS[0] - 130, DISPENSE_DELAY_TIME);
+        // float minimum = 5000000;
+        // for (int i = 0; i < 250; i++) {
+        //   spinPlate(nemaCurrentPos + 3);
+        //   readUltrasonic();
+        //   if (ultrasonicMicroTime < minimum)
+        //     minimum = ultrasonicMicroTime;
+        // }
+        // Serial.print("min time is: ");
+        // Serial.println(minimum);
+        // distanceInCm = minimum * ULTRASONIC_SPEED_CM_PER_US;
+        // // timeToMoveActuator = CM_FROM_ULTRASONIC_TO_CARTRIDGE / ACTUATOR_SPEED_CM_PER_SECOND;
+        // Serial.print("min distance: ");
+        // Serial.println(distanceInCm);
+        // digitalWrite(PIN_VACUUM, LOW);
         nextState = STATE_DONE;
         break;
       }
@@ -332,8 +347,8 @@ void loop() {
           //  Send response back to pi, letting it know whether the data we got was valid
           Serial.print(success);
 
-          //  Reset the plate so that cartidge 0 is underneath the vacuum hose
-          if (digitalRead(PIN_INFRARED))
+          //  Reset the plate so that cartidge 0 is underneath the ultrasonic sensor
+          if (digitalRead(PIN_INFRARED) && request == REQUEST_DISPENSE)
             resetPlate();
         }
         break;
@@ -346,34 +361,26 @@ void loop() {
     //  This is the beginning of the refill
     case STATE_ROTATE_REFILL:
       {
-        spinPlate(CARTRIDGE_LOCATIONS[cartridgeBeingRefilled]);
+        spinPlate(REFILL_LOCATIONS[cartridgeBeingRefilled], DISPENSE_DELAY_TIME);
         nextState = STATE_DONE;
         break;
       }
     //  Rotate to where ultrasonic sensor is and read in data
     case STATE_ROTATE_ULTRASONIC:
       {
-        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + ULTRASONIC_SENSOR_OFFSET);
+        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + ULTRASONIC_SENSOR_OFFSET, DISPENSE_DELAY_TIME);
         nextState = STATE_READ_ULTRASONIC;
         break;
       }
     case STATE_READ_ULTRASONIC:
       {
         readUltrasonic();
-        if (ultrasonicAttempts > 2)
-        {
-          Serial.print(FINISHED_FAIL);
-          nextState = STATE_READ_DATA;
-          ultrasonicAttempts = 0;
-          break;
-        }
-        ultrasonicAttempts++;
         break;
       }
     case STATE_ROTATE_TO_VACUUM:
       {
-        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge]);
-        timeToMoveActuator = distanceInCm / ACTUATOR_SPEED_CM_PER_SECOND;
+        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] - 130, DISPENSE_DELAY_TIME);
+        timeToMoveActuator = distanceInCm * 1000;
         // Serial.print(ultrasonicMicroTime);
         // Serial.print(" ");
         // Serial.print(distanceInCm);
@@ -384,7 +391,12 @@ void loop() {
     case STATE_LOWER_HOSE:
       {
         lowerHose();
-        // Serial.println(timeToMoveActuator);
+        digitalWrite(PIN_VACUUM, HIGH);
+        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + 20, RESET_DELAY_TIME);
+        digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+        delay(500);
+        digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+
         break;
       }
     case STATE_RAISE_HOSE:
