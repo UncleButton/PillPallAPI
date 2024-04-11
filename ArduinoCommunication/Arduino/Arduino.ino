@@ -1,4 +1,3 @@
-#include <Wire.h>
 #include <VL53L1X.h>
 
 // Arduino.ino
@@ -29,11 +28,14 @@ const byte STATE_CALIBRATE = 0;
 const byte STATE_READ_DATA = 1;
 const byte STATE_SELECT_CARTRIDGE = 2;
 const byte STATE_ROTATE_REFILL = 3;
-const byte STATE_ROTATE_TO_VACUUM = 11;
+const byte STATE_ROTATE_TO_VACUUM = 10;
+const byte STATE_READ_TOF = 11;
 const byte STATE_LOWER_HOSE = 12;
 const byte STATE_RAISE_HOSE = 13;
-const byte STATE_DROP_PILL = 14;
+const byte STATE_CHECK_PILL = 14;
+const byte STATE_DROP_PILL = 15;
 const byte STATE_DONE = 20;
+const byte STATE_FAIL = 30;
 
 // Pins on the arduino and what they're physically connected to
 const byte PIN_NEMA_DIRECTION = 3;
@@ -41,7 +43,8 @@ const byte PIN_NEMA_STEP = 4;
 const byte PIN_VACUUM = 5;
 const byte PIN_ACTUATOR_UP = 6;
 const byte PIN_ACTUATOR_DOWN = 7;
-const byte PIN_INFRARED = 12;
+const byte PIN_INFRARED_PILL = 9;
+const byte PIN_INFRARED_ZERO = 12;
 const byte PIN_LIGHT_SENSOR = 11;
 
 // These are specifically in relation to operation of the NEMA Stepper Motor, which spins the base that the cartridges are on
@@ -82,10 +85,12 @@ int timeToMoveActuator = 0;     // Time in milliseconds for the hose to be lower
 VL53L1X sensor;
 int timeOfFlightValue = 0;
 int TOF_min = 4300;                  //  UPDATE LATER
-int TOF_max = 9700;                //  UPDATE LATER
-int TOF_offset = 3700;              //  UPDATE LATER
-int TOF_max_threshold = 9000;
+int TOF_max = 10400;                //  UPDATE LATER
+int TOF_offset = 4500;              //  UPDATE LATER
+int TOF_max_threshold = 9500;
 // already used 4627 for min
+
+int dispenseFailCount = 0;
 
 // Setup function, runs once when the Arduino first powers on, configuring pins and serial communication
 void setup() {
@@ -100,11 +105,13 @@ void setup() {
   pinMode(PIN_ACTUATOR_DOWN, OUTPUT);
 
   //  Set these pins to input so we can read signals from them
-  pinMode(PIN_INFRARED, INPUT);
+  pinMode(PIN_INFRARED_ZERO, INPUT);
+  pinMode(PIN_INFRARED_PILL, INPUT);
   pinMode(PIN_LIGHT_SENSOR, INPUT);
 
   //  Initialize ToF
   Wire.begin();
+  Wire.setClock(400000); // use 400 kHz I2C
   sensor.setTimeout(500);
   int tries = 0;
   while (!sensor.init() and tries < 5) {
@@ -117,50 +124,26 @@ void setup() {
     Serial.println("Failed to detect and initialize sensor!");
     while (1);
   }
-  sensor.setDistanceMode(VL53L1X::Long);
+  sensor.setDistanceMode(VL53L1X::Short);
   sensor.setMeasurementTimingBudget(50000);  // Adjust as needed
   sensor.read();  // Read a value to get rid of it
+  // while (1)
+  //   readTimeOfFlight();
+  // currentState = nextState = STATE_DONE;
 
-  //  Write LOW to pins so they start off
-  digitalWrite(PIN_ACTUATOR_DOWN, LOW);
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
   delay(4000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
-
-  Serial.println("About to test");
-  resetPlate();
-  spinPlate(2000, 50);
-  delay(400);
-  spinPlate(0, 50);
-  // for (int i = 0; i < 50; i++)
-  // {
-    // readTimeOfFlight();
-    // spinPlate(nemaCurrentPos + 20, 50);
-    // delay(20);
-  // }
-  readTimeOfFlight();
-  lowerHose();
-  raiseHose();
-  spinPlate(2000, 50);
-  delay(400);
-  spinPlate(0, 50);
-  readTimeOfFlight();
-  lowerHose();
-  raiseHose();
-  spinPlate(2000, 50);
-  delay(400);
-  spinPlate(0, 50);
-  readTimeOfFlight();
-  lowerHose();
-  raiseHose();
-  currentState = nextState = STATE_DONE;
-  // Serial.println(time);
-
-  // while (true)
-  // {
-  //   Serial.print(digitalRead(PIN_LIGHT_SENSOR));
-  //   delay(1000);
-  // }
+  // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+  // delay(TOF_max - TOF_offset);
+  // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+  // delay(10000);
+  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
+  // delay(TOF_max - TOF_offset + 1500);
+  // digitalWrite(PIN_ACTUATOR_UP, LOW);
+  //   spinPlate(500, 100);
+  //   delay(400);
+  //   spinPlate(0, 100);
 }
 
 //  This reads in the data coming in on the serial port. It will determine what type of request is being made, allocate the appropriate amount of
@@ -218,7 +201,7 @@ byte readData() {
 void resetPlate() {
   spinPlate(0, DISPENSE_DELAY_TIME);
   int stepsTaken = 0;
-  while (digitalRead(PIN_INFRARED) && stepsTaken <= NEMA_ACTUAL_STEPS_PER_REV) {
+  while (digitalRead(PIN_INFRARED_ZERO) && stepsTaken <= NEMA_ACTUAL_STEPS_PER_REV) {
     digitalWrite(PIN_NEMA_STEP, HIGH);
     delayMicroseconds(RESET_DELAY_TIME);
     digitalWrite(PIN_NEMA_STEP, LOW);
@@ -226,8 +209,7 @@ void resetPlate() {
     stepsTaken++;
   }
   if (stepsTaken >= NEMA_ACTUAL_STEPS_PER_REV) {
-    Serial.print(FINISHED_FAIL);
-    nextState = STATE_READ_DATA;
+    nextState = STATE_FAIL;
   }
   // for (int x = 0; x < 350; x++) {
   //   digitalWrite(PIN_NEMA_STEP, HIGH);
@@ -296,27 +278,23 @@ void selectCartridge() {
 void lowerHose() {
   digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
   delay(timeOfFlightValue - 1000);
-  delay(1000);
-  digitalWrite(PIN_ACTUATOR_DOWN, LOW);
   digitalWrite(PIN_VACUUM, HIGH);
   delay(1000);
-
+  digitalWrite(PIN_ACTUATOR_DOWN, LOW);
   nextState = STATE_RAISE_HOSE;
 }
 
 void raiseHose() {
-  digitalWrite(PIN_VACUUM, HIGH);
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
   delay(timeOfFlightValue + 1500);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
-  digitalWrite(PIN_VACUUM, LOW);
-  nextState = STATE_DROP_PILL;
+  nextState = STATE_CHECK_PILL;
 }
 
 void dropPill() {
   spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + HALF_DISTANCE_BETWEEN_CARTRIDGES, DISPENSE_DELAY_TIME);
   digitalWrite(PIN_VACUUM, LOW);
-  delay(5000);
+  delay(4000);
   data[currentCartridge]--;
   if (data[currentCartridge] == 0)
     nextState = STATE_SELECT_CARTRIDGE;
@@ -336,12 +314,13 @@ void readTimeOfFlight()
       sensor.read();
     // Serial.println("Done discarding");
     minimumMethod();
-    Serial.println(timeOfFlightValue);
-    if (timeOfFlightValue < TOF_max and timeOfFlightValue > TOF_max_threshold)
+    Serial.print(timeOfFlightValue);
+    Serial.print(" ");
+    if (timeOfFlightValue > TOF_max_threshold)
     {
       timeOfFlightValue = TOF_max;
-      Serial.print("new value: ");
-      Serial.println(timeOfFlightValue);
+      // Serial.print("new value: ");
+      // Serial.println(timeOfFlightValue);
     }
     sensor.stopContinuous();
     delay(50);
@@ -355,6 +334,8 @@ void readTimeOfFlight()
       timeOfFlightValue = TOF_max;
   }
   timeOfFlightValue = timeOfFlightValue - TOF_offset;
+  Serial.print(timeOfFlightValue);
+  Serial.print(" ");
 }
 
 void consecutiveMethod()
@@ -394,8 +375,8 @@ void minimumMethod()
       if (val < min)
         min = val;
     }
-    Serial.print("Min is: ");
-    Serial.println(min);
+    // Serial.print("Min is: ");
+    // Serial.println(min);
     timeOfFlightValue = (min * 100);
   }
 }
@@ -449,7 +430,7 @@ void loop() {
           Serial.print(success);
 
           //  Reset the plate so that cartidge 0 is underneath the ultrasonic sensor
-          if (digitalRead(PIN_INFRARED) && request == REQUEST_DISPENSE)
+          if (digitalRead(PIN_INFRARED_ZERO) && request == REQUEST_DISPENSE)
             resetPlate();
         }
         break;
@@ -469,18 +450,19 @@ void loop() {
     case STATE_ROTATE_TO_VACUUM:
       {
         spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] - 130, DISPENSE_DELAY_TIME);
-        nextState = STATE_LOWER_HOSE;
+        nextState = STATE_READ_TOF;
         break;
       }
+    case STATE_READ_TOF:
+    {
+      readTimeOfFlight();
+      nextState = STATE_LOWER_HOSE;
+      break;
+    }
     case STATE_LOWER_HOSE:
       {
         lowerHose();
         digitalWrite(PIN_VACUUM, HIGH);
-        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + 20, RESET_DELAY_TIME);
-        digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
-        delay(500);
-        digitalWrite(PIN_ACTUATOR_DOWN, LOW);
-
         break;
       }
     case STATE_RAISE_HOSE:
@@ -488,11 +470,31 @@ void loop() {
         raiseHose();
         break;
       }
+    case STATE_CHECK_PILL:
+    {
+      if (digitalRead(PIN_INFRARED_PILL))
+      {
+        dispenseFailCount++;
+        digitalWrite(PIN_VACUUM, LOW);
+        nextState = STATE_LOWER_HOSE;
+      }
+      else
+      {
+        dispenseFailCount = 0;
+        nextState = STATE_DROP_PILL;
+      }
+      if (dispenseFailCount >= 5)
+      {
+        nextState = STATE_FAIL;
+        dispenseFailCount = 0;
+      }
+      break;
+    }
     case STATE_DROP_PILL:
       {
         dropPill();
         //  Reset the plate so that cartidge 0 is underneath the vacuum hose
-        if (currentCartridge >= numberOfCartridges and digitalRead(PIN_INFRARED))
+        if (currentCartridge >= numberOfCartridges and digitalRead(PIN_INFRARED_ZERO))
           resetPlate();
         break;
       }
@@ -502,8 +504,14 @@ void loop() {
         nextState = STATE_READ_DATA;
         break;
       }
+    case STATE_FAIL:
+    {
+      Serial.print(FINISHED_FAIL);
+      nextState = STATE_READ_DATA;
+      break;
+    }
   }
   currentState = nextState;
-  if (currentState != STATE_READ_DATA && currentState != STATE_DONE)
+  if (currentState != STATE_READ_DATA && currentState != STATE_DONE && currentState != STATE_FAIL)
     Serial.print(HEARTBEAT);
 }
