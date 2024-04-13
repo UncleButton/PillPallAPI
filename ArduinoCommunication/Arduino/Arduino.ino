@@ -1,11 +1,13 @@
-#include <VL53L1X.h>
-
 // Arduino.ino
 
 // This is the code that will go on the Arduino. It will take in the request from the ArduinoCommunicator and control the motors, vacuum, sensors,
 // and other parts of the device according to the particular request.
 
 // Justin Feldmann, February 2024
+
+#include <VL53L1X.h>
+
+#define DEBUG   // Comment/uncomment for seeing debug statements
 
 // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
 const byte INFO_REQUEST_OFFSET = 6;
@@ -17,9 +19,10 @@ const byte REQUEST_DISPENSE = 2;
 
 const byte RECEIVED_VALID_MESSAGE = 0;   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
 const byte RECEIVED_INVALID_MESSAGE = 1;      // If the message was a fail, we return a 1. Don't ask why it's a char, it just is
-const byte HEARTBEAT = 2;         // Heartbeat, still communicating with Arduino correctly
-const byte FINISHED_SUCCESS = 3;  // Finished dispensing or refilling correctly
-const byte FINISHED_FAIL = 4;     // Did not successfully dispense or refill
+const byte HEARTBEAT = 2;           // Heartbeat, still communicating with Arduino correctly
+const byte FINISHED_SUCCESS = 3;    // Finished dispensing or refilling correctly
+const byte FINISHED_FAIL = 4;       // Did not successfully dispense or refill
+const byte TOF_NOT_INITIALIZED = 5; // TOF sensor had error while trying to initialize
 
 const int ACTUATOR_SPEED_CM_PER_SECOND = 1; // Found this value on the actuator's Amazon page (should have checked earlier...duh)
 
@@ -45,7 +48,6 @@ const byte PIN_ACTUATOR_UP = 6;
 const byte PIN_ACTUATOR_DOWN = 7;
 const byte PIN_INFRARED_PILL = 9;
 const byte PIN_INFRARED_ZERO = 12;
-const byte PIN_LIGHT_SENSOR = 11;
 
 // These are specifically in relation to operation of the NEMA Stepper Motor, which spins the base that the cartridges are on
 const int DISPENSE_DELAY_TIME = 200;  //  Delay time needed between switching the nema on and off when dispensing
@@ -58,12 +60,20 @@ const int NEMA_STEPS_PER_REV = 200;     // Number of steps per revolution for th
 const int NEMA_DRIVER_RESOLUTION = 16;  // Microstep that the motor driver is set to. Now a full revolution will take 200 * 16 steps
 // NEMA_ACTUAL_STEPS_PER_REV is the steps per rev when taking into consideration the gear ratios and the driver resolution
 const float NEMA_ACTUAL_STEPS_PER_REV = ((float)BIG_GEAR_TEETH / LITTLE_GEAR_TEETH) * NEMA_STEPS_PER_REV * NEMA_DRIVER_RESOLUTION;
-const float HALF_DISTANCE_BETWEEN_CARTRIDGES = NEMA_ACTUAL_STEPS_PER_REV / (EXPECTED_DISPENSE_LENGTH * 2);
-const float DISTANCE_BETWEEN_CARTRIDGES = HALF_DISTANCE_BETWEEN_CARTRIDGES * 2;
+const float DISTANCE_BETWEEN_CARTRIDGES = NEMA_ACTUAL_STEPS_PER_REV / EXPECTED_DISPENSE_LENGTH;
+const float HALF_DISTANCE_BETWEEN_CARTRIDGES = DISTANCE_BETWEEN_CARTRIDGES / 2;
 const int NEMA_HALF_REV_LOCATION = NEMA_ACTUAL_STEPS_PER_REV / 2;
 const int CARTRIDGE_LOCATIONS[] = { DISTANCE_BETWEEN_CARTRIDGES * 5, 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4 };
 const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[5], CARTRIDGE_LOCATIONS[0], CARTRIDGE_LOCATIONS[1], CARTRIDGE_LOCATIONS[2], CARTRIDGE_LOCATIONS[3], CARTRIDGE_LOCATIONS[4] };
-const int REFILL_LOCATION = HALF_DISTANCE_BETWEEN_CARTRIDGES * 4;
+
+const int TOF_MIN = 6800;                  //  UPDATE LATER   changed from 4500....6350
+const int TOF_MAX = 10400;                //  UPDATE LATER
+const int TOF_OFFSET = 4500;              //  UPDATE LATER    changed from 4500
+const int TOF_MAX_THRESHOLD = 9500;
+// already used 4627 for min
+
+const byte DISPENSE_MAX_FAIL = 5;
+const byte TOF_INIT_MAX_FAIL = 5;
 
 byte *data;                           // The array that will hold the data, allocated when it is read in
 byte request = 0;                     // The type of request received fromt the pi
@@ -78,17 +88,11 @@ int nemaCurrentPos = 0;  // Current position of the base plate
 byte currentCartridge = 0;  // The cartridge of medication currently being dispensed
 byte cartridgeBeingRefilled = 0;  // The cartridge being filled/refilled
 
-float ultrasonicMicroTime = 0;  //  Time it took for the ultrasonic sensor to receieve the echo back
 float distanceInCm = 0;         //  The distance calculated from the time it took to receieve the echo
 int timeToMoveActuator = 0;     // Time in milliseconds for the hose to be lowered into the cartridge
 
 VL53L1X sensor;
 int timeOfFlightValue = 0;
-int TOF_min = 4300;                  //  UPDATE LATER
-int TOF_max = 10400;                //  UPDATE LATER
-int TOF_offset = 4500;              //  UPDATE LATER
-int TOF_max_threshold = 9500;
-// already used 4627 for min
 
 int dispenseFailCount = 0;
 
@@ -107,39 +111,42 @@ void setup() {
   //  Set these pins to input so we can read signals from them
   pinMode(PIN_INFRARED_ZERO, INPUT);
   pinMode(PIN_INFRARED_PILL, INPUT);
-  pinMode(PIN_LIGHT_SENSOR, INPUT);
 
   //  Initialize ToF
   Wire.begin();
   Wire.setClock(400000); // use 400 kHz I2C
   sensor.setTimeout(500);
-  int tries = 0;
-  while (!sensor.init() and tries < 5) {
+  byte initializeTOFAttempts = 0;
+  while (!sensor.init() && initializeTOFAttempts < TOF_INIT_MAX_FAIL) {
+    #ifdef DEBUG
     Serial.println("Failed init...");
-    tries++;
+    #endif
+    initializeTOFAttempts++;
     delay(50);
   }
-  if (tries >= 5)
+  if (initializeTOFAttempts >= TOF_INIT_MAX_FAIL)
   {
+    #ifdef DEBUG
     Serial.println("Failed to detect and initialize sensor!");
-    while (1);
+    #endif
+    while (1)
+      Serial.print(TOF_NOT_INITIALIZED);
   }
   sensor.setDistanceMode(VL53L1X::Short);
-  sensor.setMeasurementTimingBudget(50000);  // Adjust as needed
-  sensor.read();  // Read a value to get rid of it
+  sensor.setMeasurementTimingBudget(50000);  // 50 ms, adjust as needed
   // while (1)
   //   readTimeOfFlight();
   // currentState = nextState = STATE_DONE;
 
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  delay(4000);
+  delay(5000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
   // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
-  // delay(TOF_max - TOF_offset);
+  // delay(TOF_MIN - TOF_OFFSET);
   // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
   // delay(10000);
   // digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  // delay(TOF_max - TOF_offset + 1500);
+  // delay(TOF_MAX - TOF_OFFSET + 1500);
   // digitalWrite(PIN_ACTUATOR_UP, LOW);
   //   spinPlate(500, 100);
   //   delay(400);
@@ -304,38 +311,39 @@ void dropPill() {
 
 void readTimeOfFlight()
 {
-  int attempts = 0;
+  int TOFValidReadAttempts = 0;
   timeOfFlightValue = 0;
-  while ((timeOfFlightValue < TOF_min || timeOfFlightValue > TOF_max) and attempts < 2)
+  while ((timeOfFlightValue < TOF_MIN || timeOfFlightValue > TOF_MAX) && TOFValidReadAttempts < 2)
   {
-    sensor.startContinuous(50);  // Adjust as needed
-    sensor.read();
-    for (int i = 20; i > 0; i--)
+    sensor.startContinuous(50);  // 50 ms, adjust as needed
+    sensor.read();  // Read a value to get rid of it
+    for (int i = 20; i > 0; i--)  //  Throw out first 20 readings
       sensor.read();
-    // Serial.println("Done discarding");
     minimumMethod();
+    #ifdef DEBUG
     Serial.print(timeOfFlightValue);
     Serial.print(" ");
-    if (timeOfFlightValue > TOF_max_threshold)
+    #endif
+    if (timeOfFlightValue > TOF_MAX_THRESHOLD)
     {
-      timeOfFlightValue = TOF_max;
-      // Serial.print("new value: ");
-      // Serial.println(timeOfFlightValue);
+      timeOfFlightValue = TOF_MAX;
     }
     sensor.stopContinuous();
     delay(50);
-    attempts++;
+    TOFValidReadAttempts++;
   }
-  if (attempts >= 2)
+  if (TOFValidReadAttempts >= 2)
   {
-    if (timeOfFlightValue < TOF_min)
-      timeOfFlightValue = TOF_min;
+    if (timeOfFlightValue < TOF_MIN)
+      timeOfFlightValue = TOF_MIN;
     else
-      timeOfFlightValue = TOF_max;
+      timeOfFlightValue = TOF_MAX;
   }
-  timeOfFlightValue = timeOfFlightValue - TOF_offset;
+  timeOfFlightValue = timeOfFlightValue - TOF_OFFSET;
+  #ifdef DEBUG
   Serial.print(timeOfFlightValue);
   Serial.print(" ");
+  #endif
 }
 
 void consecutiveMethod()
@@ -346,19 +354,19 @@ void consecutiveMethod()
   int current_value = 0;
   while (1) {
         current_value = sensor.read();
-
         if (current_value == previous_value) {
             consecutive++;
             if (consecutive == CONSECUTIVE_COUNT - 1) {
+                #ifdef DEBUG
                 Serial.print("Five consecutive values detected: ");
                 Serial.println(current_value);
-                timeOfFlightValue = (current_value * 100);
+                #endif
+                timeOfFlightValue = current_value * 100;
                 break;
             }
         } else {
             consecutive = 0;
         }
-
         previous_value = current_value;
         delay(10);
     }
@@ -375,9 +383,7 @@ void minimumMethod()
       if (val < min)
         min = val;
     }
-    // Serial.print("Min is: ");
-    // Serial.println(min);
-    timeOfFlightValue = (min * 100);
+    timeOfFlightValue = min * 100;
   }
 }
 
@@ -389,9 +395,11 @@ void averageMethod()
     avg += sensor.read();
   }
   avg /= 50;
+  #ifdef DEBUG
   Serial.print("Avg is: ");
   Serial.println(avg);
-  timeOfFlightValue = (avg * 100);
+  #endif
+  timeOfFlightValue = avg * 100;
 }
 
 // Arduino runs in an infinite loop through this function, which is where the main state machine of this device will be
@@ -399,22 +407,8 @@ void loop() {
   switch (currentState) {
     case STATE_CALIBRATE:
       {
-        resetPlate();
-        spinPlate(CARTRIDGE_LOCATIONS[0] - 130, DISPENSE_DELAY_TIME);
-        // float minimum = 5000000;
-        // for (int i = 0; i < 250; i++) {
-        //   spinPlate(nemaCurrentPos + 3);
-        //   readUltrasonic();
-        //   if (ultrasonicMicroTime < minimum)
-        //     minimum = ultrasonicMicroTime;
-        // }
-        // Serial.print("min time is: ");
-        // Serial.println(minimum);
-        // distanceInCm = minimum * ULTRASONIC_SPEED_CM_PER_US;
-        // // timeToMoveActuator = CM_FROM_ULTRASONIC_TO_CARTRIDGE / ACTUATOR_SPEED_CM_PER_SECOND;
-        // Serial.print("min distance: ");
-        // Serial.println(distanceInCm);
-        // digitalWrite(PIN_VACUUM, LOW);
+        // resetPlate();
+        // spinPlate(CARTRIDGE_LOCATIONS[0] - 130, DISPENSE_DELAY_TIME);
         nextState = STATE_DONE;
         break;
       }
@@ -483,7 +477,7 @@ void loop() {
         dispenseFailCount = 0;
         nextState = STATE_DROP_PILL;
       }
-      if (dispenseFailCount >= 5)
+      if (dispenseFailCount >= DISPENSE_MAX_FAIL)
       {
         nextState = STATE_FAIL;
         dispenseFailCount = 0;
@@ -494,7 +488,7 @@ void loop() {
       {
         dropPill();
         //  Reset the plate so that cartidge 0 is underneath the vacuum hose
-        if (currentCartridge >= numberOfCartridges and digitalRead(PIN_INFRARED_ZERO))
+        if (currentCartridge >= numberOfCartridges && digitalRead(PIN_INFRARED_ZERO))
           resetPlate();
         break;
       }

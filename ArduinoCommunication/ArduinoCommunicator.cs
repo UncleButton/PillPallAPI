@@ -19,6 +19,7 @@ public static class ArduinoCommunicator
     const char HEARTBEAT = '2';   // Heartbeat, still communicating with Arduino correctly
     const char FINISHED_SUCCESS = '3';   // Finished dispensing or refilling correctly
     const char FINISHED_FAIL = '4';   // Did not successfully dispense or refill
+    const char TOF_NOT_INITIALIZED = '5';   // TOF sensor had error while trying to initialize
     const string PI_PORT_NAME = "/dev/ttyACM0";    // This is the port used for the serial communication, CHANGE FOR PI
     const string JUSTIN_PORT_NAME = "COM7";    // This is the port used for the serial communication, CHANGE FOR PI
     static int num = 0;
@@ -56,6 +57,11 @@ public static class ArduinoCommunicator
         }
 
         sp.ReadTimeout = 5000;
+        if (sp.ReadByte() == TOF_NOT_INITIALIZED)
+        {
+            Console.WriteLine("Error when trying to initialize the Time of Flight sensor");
+            return false;
+        }
         
         // Message array being sent to Arduino. Needs to be the length of data + 2 so the first byte can hold the request and the length of the
         // message, and the final byte holds the checksum.
