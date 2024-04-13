@@ -57,7 +57,7 @@ public static class ArduinoCommunicator
         }
 
         sp.ReadTimeout = 5000;
-        if (sp.ReadByte() == TOF_NOT_INITIALIZED)
+        if (sp.BytesToRead > 0 && sp.ReadByte() == TOF_NOT_INITIALIZED)
         {
             Console.WriteLine("Error when trying to initialize the Time of Flight sensor");
             return false;

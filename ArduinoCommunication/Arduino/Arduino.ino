@@ -67,7 +67,7 @@ const int CARTRIDGE_LOCATIONS[] = { DISTANCE_BETWEEN_CARTRIDGES * 5, 0, DISTANCE
 const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[5], CARTRIDGE_LOCATIONS[0], CARTRIDGE_LOCATIONS[1], CARTRIDGE_LOCATIONS[2], CARTRIDGE_LOCATIONS[3], CARTRIDGE_LOCATIONS[4] };
 
 const int TOF_MIN = 6800;                  //  UPDATE LATER   changed from 4500....6350
-const int TOF_MAX = 10400;                //  UPDATE LATER
+const int TOF_MAX = 10300;                //  UPDATE LATER    changed from 10400...10500
 const int TOF_OFFSET = 4500;              //  UPDATE LATER    changed from 4500
 const int TOF_MAX_THRESHOLD = 9500;
 // already used 4627 for min
@@ -91,7 +91,7 @@ byte cartridgeBeingRefilled = 0;  // The cartridge being filled/refilled
 float distanceInCm = 0;         //  The distance calculated from the time it took to receieve the echo
 int timeToMoveActuator = 0;     // Time in milliseconds for the hose to be lowered into the cartridge
 
-VL53L1X sensor;
+VL53L1X TOFsensor;
 int timeOfFlightValue = 0;
 
 int dispenseFailCount = 0;
@@ -115,9 +115,9 @@ void setup() {
   //  Initialize ToF
   Wire.begin();
   Wire.setClock(400000); // use 400 kHz I2C
-  sensor.setTimeout(500);
+  TOFsensor.setTimeout(500);
   byte initializeTOFAttempts = 0;
-  while (!sensor.init() && initializeTOFAttempts < TOF_INIT_MAX_FAIL) {
+  while (!TOFsensor.init() && initializeTOFAttempts < TOF_INIT_MAX_FAIL) {
     #ifdef DEBUG
     Serial.println("Failed init...");
     #endif
@@ -127,23 +127,53 @@ void setup() {
   if (initializeTOFAttempts >= TOF_INIT_MAX_FAIL)
   {
     #ifdef DEBUG
-    Serial.println("Failed to detect and initialize sensor!");
+    Serial.println("Failed to detect and initialize TOF sensor!");
     #endif
     while (1)
       Serial.print(TOF_NOT_INITIALIZED);
   }
-  sensor.setDistanceMode(VL53L1X::Short);
-  sensor.setMeasurementTimingBudget(50000);  // 50 ms, adjust as needed
-  // while (1)
-  //   readTimeOfFlight();
+  TOFsensor.setDistanceMode(VL53L1X::Short);
+  TOFsensor.setMeasurementTimingBudget(50000);  // 50 ms, adjust as needed
+  // resetPlate();
+  // spinPlate(-50, 300);
+  // TOFsensor.startContinuous(200);
+  // TOFsensor.read();
+  // int max = 0;
+  // for (int i = 0; i < 50; i++)
+  //   TOFsensor.read();
+  // for (int i = 0; i < 100; i++)
+  // {
+  //   int val = TOFsensor.read();
+  //   if (val > max)
+  //     max = val;
+  //   if (max == 104)
+  //   {
+  //     Serial.print("stopped at: ");
+  //     Serial.print(nemaCurrentPos);
+  //     break;
+  //   }
+  //   spinPlate(nemaCurrentPos + 5, 300);
+  //   delay(200);
+  // }
+  // Serial.print(max);
+    // readTimeOfFlight();
   // currentState = nextState = STATE_DONE;
 
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  delay(5000);
+  // delay(TOF_MAX - TOF_OFFSET + 1500);
+  delay(4000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
-  // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
-  // delay(TOF_MIN - TOF_OFFSET);
-  // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+  // while (1)
+  // {
+  //   Serial.print(TOFsensor.read());
+  //   delay(100);
+  // }
+
+  // delay(1500);
+  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
+  // delay(TOF_MAX - TOF_OFFSET + 1500);
+  // digitalWrite(PIN_ACTUATOR_UP, LOW);
+  // digitalWrite(PIN_VACUUM, LOW);
   // delay(10000);
   // digitalWrite(PIN_ACTUATOR_UP, HIGH);
   // delay(TOF_MAX - TOF_OFFSET + 1500);
@@ -284,16 +314,30 @@ void selectCartridge() {
 
 void lowerHose() {
   digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
-  delay(timeOfFlightValue - 1000);
+  delay(timeToMoveActuator - 1000);
   digitalWrite(PIN_VACUUM, HIGH);
   delay(1000);
   digitalWrite(PIN_ACTUATOR_DOWN, LOW);
   nextState = STATE_RAISE_HOSE;
 }
 
+void shakeCartridge()
+{
+  spinPlate(-200, 400);
+  delay(200);
+  spinPlate(200, 400);
+  delay(200);
+  spinPlate(-200, 400);      //  Option for shaking cartridge back and forth
+  delay(200);
+  spinPlate(200, 400);
+  delay(200);
+  spinPlate(0, 400);
+  delay(1500);
+}
+
 void raiseHose() {
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  delay(timeOfFlightValue + 1500);
+  delay(timeToMoveActuator + 1500);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
   nextState = STATE_CHECK_PILL;
 }
@@ -315,10 +359,10 @@ void readTimeOfFlight()
   timeOfFlightValue = 0;
   while ((timeOfFlightValue < TOF_MIN || timeOfFlightValue > TOF_MAX) && TOFValidReadAttempts < 2)
   {
-    sensor.startContinuous(50);  // 50 ms, adjust as needed
-    sensor.read();  // Read a value to get rid of it
+    TOFsensor.startContinuous(50);  // 50 ms, adjust as needed
+    TOFsensor.read();  // Read a value to get rid of it
     for (int i = 20; i > 0; i--)  //  Throw out first 20 readings
-      sensor.read();
+      TOFsensor.read();
     minimumMethod();
     #ifdef DEBUG
     Serial.print(timeOfFlightValue);
@@ -328,7 +372,7 @@ void readTimeOfFlight()
     {
       timeOfFlightValue = TOF_MAX;
     }
-    sensor.stopContinuous();
+    TOFsensor.stopContinuous();
     delay(50);
     TOFValidReadAttempts++;
   }
@@ -339,9 +383,9 @@ void readTimeOfFlight()
     else
       timeOfFlightValue = TOF_MAX;
   }
-  timeOfFlightValue = timeOfFlightValue - TOF_OFFSET;
+  timeToMoveActuator = timeOfFlightValue - TOF_OFFSET;
   #ifdef DEBUG
-  Serial.print(timeOfFlightValue);
+  Serial.print(timeToMoveActuator);
   Serial.print(" ");
   #endif
 }
@@ -353,7 +397,7 @@ void consecutiveMethod()
   int previous_value = 0;
   int current_value = 0;
   while (1) {
-        current_value = sensor.read();
+        current_value = TOFsensor.read();
         if (current_value == previous_value) {
             consecutive++;
             if (consecutive == CONSECUTIVE_COUNT - 1) {
@@ -379,7 +423,7 @@ void minimumMethod()
     unsigned int min = 500000;
     for (int i = 0; i < 15; i++)
     {
-      int val = sensor.read();
+      int val = TOFsensor.read();
       if (val < min)
         min = val;
     }
@@ -392,7 +436,7 @@ void averageMethod()
   float avg = 0;
   for (int i = 0; i < 50; i++)
   {
-    avg += sensor.read();
+    avg += TOFsensor.read();
   }
   avg /= 50;
   #ifdef DEBUG
@@ -443,7 +487,7 @@ void loop() {
       }
     case STATE_ROTATE_TO_VACUUM:
       {
-        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] - 130, DISPENSE_DELAY_TIME);
+        spinPlate(CARTRIDGE_LOCATIONS[currentCartridge], DISPENSE_DELAY_TIME);
         nextState = STATE_READ_TOF;
         break;
       }
@@ -461,6 +505,8 @@ void loop() {
       }
     case STATE_RAISE_HOSE:
       {
+        if (timeOfFlightValue >= TOF_MAX_THRESHOLD)
+          shakeCartridge();
         raiseHose();
         break;
       }
