@@ -65,11 +65,12 @@ const float HALF_DISTANCE_BETWEEN_CARTRIDGES = DISTANCE_BETWEEN_CARTRIDGES / 2;
 const int NEMA_HALF_REV_LOCATION = NEMA_ACTUAL_STEPS_PER_REV / 2;
 const int CARTRIDGE_LOCATIONS[] = { DISTANCE_BETWEEN_CARTRIDGES * 5, 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4 };
 const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[5], CARTRIDGE_LOCATIONS[0], CARTRIDGE_LOCATIONS[1], CARTRIDGE_LOCATIONS[2], CARTRIDGE_LOCATIONS[3], CARTRIDGE_LOCATIONS[4] };
+const int DISPENSE_OFFSET = 100;
 
 const int TOF_MIN = 6800;                  //  UPDATE LATER   changed from 4500....6350
 const int TOF_MAX = 10300;                //  UPDATE LATER    changed from 10400...10500
-const int TOF_OFFSET = 4500;              //  UPDATE LATER    changed from 4500
-const int TOF_MAX_THRESHOLD = 9500;
+const int TOF_OFFSET = 4350;              //  UPDATE LATER    changed from 4500
+const int TOF_MAX_THRESHOLD = 9800;       //  changed from 9500
 // already used 4627 for min
 
 const byte DISPENSE_MAX_FAIL = 5;
@@ -134,35 +135,57 @@ void setup() {
   }
   TOFsensor.setDistanceMode(VL53L1X::Short);
   TOFsensor.setMeasurementTimingBudget(50000);  // 50 ms, adjust as needed
+  digitalWrite(PIN_ACTUATOR_UP, HIGH);
+  delay(4000);
+  digitalWrite(PIN_ACTUATOR_UP, LOW);
   // resetPlate();
-  // spinPlate(-50, 300);
+
+
+  // spinPlate(400, 300);
+  // delay(300);                     // THIS EXTRA OFFSET FREAKIN WORKS
+  // spinPlate(100, 300);
+
+
+  // resetPlate();
+  // delay(300);
+  // spinPlate(-100, 300);
   // TOFsensor.startContinuous(200);
   // TOFsensor.read();
-  // int max = 0;
   // for (int i = 0; i < 50; i++)
   //   TOFsensor.read();
+  // float avg = 0;
+  // int count = 0;
   // for (int i = 0; i < 100; i++)
   // {
   //   int val = TOFsensor.read();
-  //   if (val > max)
-  //     max = val;
-  //   if (max == 104)
+  //   if (val > 102)
   //   {
-  //     Serial.print("stopped at: ");
-  //     Serial.print(nemaCurrentPos);
-  //     break;
+  //     avg += val;
+  //     count++;
   //   }
-  //   spinPlate(nemaCurrentPos + 5, 300);
+    // if (max == 104)
+    // {
+    //   Serial.print("stopped at: ");
+    //   Serial.println(nemaCurrentPos);
+    //   break;
+    // }
+  //   spinPlate(nemaCurrentPos + 3, 300);
   //   delay(200);
   // }
+  // Serial.print("Avg is ");
+  // Serial.println(avg / count);
   // Serial.print(max);
     // readTimeOfFlight();
   // currentState = nextState = STATE_DONE;
 
-  digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  // delay(TOF_MAX - TOF_OFFSET + 1500);
-  delay(4000);
-  digitalWrite(PIN_ACTUATOR_UP, LOW);
+  // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
+  // delay(TOF_MAX - TOF_OFFSET);
+  // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+  // digitalWrite(PIN_VACUUM, HIGH);
+  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
+  // delay(8000);
+  // digitalWrite(PIN_ACTUATOR_UP, LOW);
+  // digitalWrite(PIN_VACUUM, LOW);
   // while (1)
   // {
   //   Serial.print(TOFsensor.read());
@@ -323,15 +346,15 @@ void lowerHose() {
 
 void shakeCartridge()
 {
-  spinPlate(-200, 400);
+  spinPlate(-50, 300);
   delay(200);
-  spinPlate(200, 400);
+  spinPlate(-100, 300);
   delay(200);
-  spinPlate(-200, 400);      //  Option for shaking cartridge back and forth
+  spinPlate(50, 300);
   delay(200);
-  spinPlate(200, 400);
+  spinPlate(100, 300);
   delay(200);
-  spinPlate(0, 400);
+  spinPlate(0, 300);
   delay(1500);
 }
 
@@ -475,6 +498,7 @@ void loop() {
       }
     case STATE_SELECT_CARTRIDGE:
       {
+        timeOfFlightValue = timeToMoveActuator = 0;
         selectCartridge();
         break;
       }
@@ -494,6 +518,7 @@ void loop() {
     case STATE_READ_TOF:
     {
       readTimeOfFlight();
+      spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + DISPENSE_OFFSET, DISPENSE_DELAY_TIME);
       nextState = STATE_LOWER_HOSE;
       break;
     }
@@ -505,8 +530,8 @@ void loop() {
       }
     case STATE_RAISE_HOSE:
       {
-        if (timeOfFlightValue >= TOF_MAX_THRESHOLD)
-          shakeCartridge();
+        // if (timeOfFlightValue >= TOF_MAX_THRESHOLD)
+        //   shakeCartridge();
         raiseHose();
         break;
       }
