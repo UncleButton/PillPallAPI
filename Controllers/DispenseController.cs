@@ -170,7 +170,7 @@ public class DispenseController : ControllerBase
     [Route("dispense")]
     public IActionResult DispenseMedication([FromBody] int[] dispenseList)
     {
-        ArduinoCommunicator.Dispense(new int[] {0,1,0,0,0,0});
+        ArduinoCommunicator.Dispense(dispenseList);
         return Ok();
     }
 
