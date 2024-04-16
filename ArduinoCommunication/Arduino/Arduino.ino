@@ -7,7 +7,7 @@
 
 #include <VL53L1X.h>
 
-#define DEBUG   // Comment/uncomment for seeing debug statements
+// #define DEBUG   // Comment/uncomment for seeing debug statements
 
 // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
 const byte INFO_REQUEST_OFFSET = 6;
@@ -43,7 +43,7 @@ const byte STATE_FAIL = 30;
 // Pins on the arduino and what they're physically connected to
 const byte PIN_NEMA_DIRECTION = 3;
 const byte PIN_NEMA_STEP = 4;
-const byte PIN_VACUUM = 5;
+const byte PIN_VACUUM = 11;
 const byte PIN_ACTUATOR_UP = 6;
 const byte PIN_ACTUATOR_DOWN = 7;
 const byte PIN_INFRARED_PILL = 9;
@@ -66,14 +66,15 @@ const int NEMA_HALF_REV_LOCATION = NEMA_ACTUAL_STEPS_PER_REV / 2;
 const int CARTRIDGE_LOCATIONS[] = { DISTANCE_BETWEEN_CARTRIDGES * 5, 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4 };
 const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[5], CARTRIDGE_LOCATIONS[0], CARTRIDGE_LOCATIONS[1], CARTRIDGE_LOCATIONS[2], CARTRIDGE_LOCATIONS[3], CARTRIDGE_LOCATIONS[4] };
 const int DISPENSE_OFFSET = 100;
+const int VERTICAL_OFFSET = 500;
 
 const int TOF_MIN = 6800;                  //  UPDATE LATER   changed from 4500....6350
 const int TOF_MAX = 10300;                //  UPDATE LATER    changed from 10400...10500
 const int TOF_OFFSET = 4350;              //  UPDATE LATER    changed from 4500
-const int TOF_MAX_THRESHOLD = 9800;       //  changed from 9500
+const int TOF_MAX_THRESHOLD = 8500;       //  changed from 9500...9800
 // already used 4627 for min
 
-const byte DISPENSE_MAX_FAIL = 5;
+const byte DISPENSE_MAX_FAIL = 3;
 const byte TOF_INIT_MAX_FAIL = 5;
 
 byte *data;                           // The array that will hold the data, allocated when it is read in
@@ -138,6 +139,9 @@ void setup() {
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
   delay(4000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
+  // digitalWrite(PIN_VACUUM, HIGH);
+  // delay(15000);
+  // digitalWrite(PIN_VACUUM, LOW);
   // resetPlate();
 
 
@@ -341,6 +345,8 @@ void lowerHose() {
   digitalWrite(PIN_VACUUM, HIGH);
   delay(1000);
   digitalWrite(PIN_ACTUATOR_DOWN, LOW);
+  // if (dispenseFailCount == 3)
+  //   spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] - DISPENSE_OFFSET, RESET_DELAY_TIME);
   nextState = STATE_RAISE_HOSE;
 }
 
@@ -363,6 +369,14 @@ void raiseHose() {
   delay(timeToMoveActuator + 1500);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
   nextState = STATE_CHECK_PILL;
+  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
+  // delay(timeToMoveActuator - 1500);
+  // digitalWrite(PIN_VACUUM, LOW);
+  // delay(1500);
+  // digitalWrite(PIN_VACUUM, HIGH);
+  // delay(1500);
+  // digitalWrite(PIN_ACTUATOR_UP, LOW);
+  // nextState = STATE_CHECK_PILL;
 }
 
 void dropPill() {
@@ -469,6 +483,21 @@ void averageMethod()
   timeOfFlightValue = avg * 100;
 }
 
+void tryAgain()
+{
+  // if (dispenseFailCount > 0)
+  // {
+  //   if ((timeOfFlightValue + VERTICAL_OFFSET) <= TOF_MAX)
+  //     timeToMoveActuator = timeOfFlightValue + VERTICAL_OFFSET - TOF_OFFSET;
+  //   else
+  //     timeToMoveActuator = TOF_MAX - TOF_OFFSET;
+  if (dispenseFailCount == 1)
+    spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] - DISPENSE_OFFSET, DISPENSE_DELAY_TIME);
+  else if (dispenseFailCount == 2)
+    spinPlate(CARTRIDGE_LOCATIONS[currentCartridge], DISPENSE_DELAY_TIME);
+  // }
+}
+
 // Arduino runs in an infinite loop through this function, which is where the main state machine of this device will be
 void loop() {
   switch (currentState) {
@@ -530,8 +559,6 @@ void loop() {
       }
     case STATE_RAISE_HOSE:
       {
-        // if (timeOfFlightValue >= TOF_MAX_THRESHOLD)
-        //   shakeCartridge();
         raiseHose();
         break;
       }
@@ -541,6 +568,7 @@ void loop() {
       {
         dispenseFailCount++;
         digitalWrite(PIN_VACUUM, LOW);
+        tryAgain();
         nextState = STATE_LOWER_HOSE;
       }
       else
@@ -548,7 +576,7 @@ void loop() {
         dispenseFailCount = 0;
         nextState = STATE_DROP_PILL;
       }
-      if (dispenseFailCount >= DISPENSE_MAX_FAIL)
+      if (dispenseFailCount > 2)
       {
         nextState = STATE_FAIL;
         dispenseFailCount = 0;
