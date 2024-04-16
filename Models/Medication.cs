@@ -13,6 +13,7 @@ public class Medication
     public required int NumPills {get;set;}
     public required string ExpirationDate {get;set;}
     public string PIN { get; set; } = "";
+    public short isLarge { get; set; }
 
     //dosage info
     public int? MaxPillsPerDose {get;set;}

@@ -145,7 +145,7 @@ public static class ArduinoCommunicator
         return SendRequest(1, new int[]{containerId});
     }
 
-    public static bool Dispense(int[] dispenseArray){
+    public static bool Dispense(int[,] dispenseArray){
         //refill is of the form: (2, [num from container 0, num from container 1..., num from container 5])
         return SendRequest(2, dispenseArray);
     }

@@ -41,16 +41,18 @@ public class DispenseController : ControllerBase
             (medMapTable, scheduleMedTable) => new DispenseContainer{
                 scheduleId = (int)scheduleMedTable.ScheduleId!,
                 containerId = medMapTable.ContainerId,
-                numPills = scheduleMedTable.NumPills
+                numPills = scheduleMedTable.NumPills,
+                isLarge = scheduleMedTable.Medication!.isLarge
             }
         ).Where(entity => entity.scheduleId == schedule.Id);
 
         //initialize dispense array with 0s
-        var dispenseArray = new int[]{0, 0, 0, 0, 0, 0};
+        var dispenseArray = new int[,]{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
 
         //fill dispense array with the number of each pill requested
         foreach(DispenseContainer containerToDispense in containersToDispense){
-            dispenseArray[containerToDispense.containerId] = containerToDispense.numPills;
+            dispenseArray[containerToDispense.containerId, 0] = containerToDispense.numPills;
+            dispenseArray[containerToDispense.containerId, 0] = containerToDispense.isLarge;
         }
 
         //thank you justin.  Send request to arduino communicator
@@ -93,7 +95,7 @@ public class DispenseController : ControllerBase
     public IActionResult DispenseCustom([FromBody] ScheduleMed[] scheduleMeds)
     {
         //initialize dispense array with 0s
-        var dispenseArray = new int[]{0, 0, 0, 0, 0, 0};
+        var dispenseArray = new int[,]{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
 
         //fill dispense array with the number of each pill requested
         foreach(ScheduleMed scheduleMed in scheduleMeds){
@@ -102,7 +104,8 @@ public class DispenseController : ControllerBase
             if(container == null)
                 return BadRequest("Encountered a problem mapping the medication to the container.");
 
-            dispenseArray[container.ContainerId] = scheduleMed.NumPills; 
+            dispenseArray[container.ContainerId, 0] = scheduleMed.NumPills; 
+            dispenseArray[container.ContainerId, 1] = scheduleMed.Medication!.isLarge; 
 
             //add dispense log
             var dispenseLog = new DispenseLog{
@@ -168,9 +171,9 @@ public class DispenseController : ControllerBase
 
     [HttpPost]
     [Route("dispense")]
-    public IActionResult DispenseMedication([FromBody] int[] dispenseList)
+    public IActionResult DispenseMedication([FromBody] int[,] dispenseList)
     {
-        ArduinoCommunicator.Dispense(new int[] {0,1,0,0,0,0});
+        ArduinoCommunicator.Dispense(new int[,] {{0,1},{0,1},{0,1},{0,1},{0,1}});
         return Ok();
     }
 
