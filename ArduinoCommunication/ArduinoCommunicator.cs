@@ -12,6 +12,8 @@ namespace PillPallAPI.ArduinoCommunication;
 
 public static class ArduinoCommunicator
 {
+    const byte REQUEST_REFILL = 1;
+    const byte REQUEST_DISPENSE = 2;
     const byte REQUEST_OFFSET = 6;  // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
     const byte MAX_TRANSFER_ATTEMPTS = 5;   // MAX number of times we try to send the data before determining some failure
     const char RECEIVED_VALID_MESSAGE = '0';   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
@@ -72,13 +74,20 @@ public static class ArduinoCommunicator
 
         // The checksum is a method used to ensure valid data is received on the Arduino.
         byte chkSum = message[0];
-        for (byte i = 0; i < data.Length / 2; i++)
+        if (request == REQUEST_DISPENSE)
         {
-            message[(2*i)+1] = (byte) data[i, 0];
-            message[(2*i)+2] = (byte) data[i, 1];
-            // Console.WriteLine(i + ": " + "[" + message[(2*i)+1] + "," + message[(2*i)+2] + "]");
-            chkSum += message[(2*i)+1];
-            chkSum += message[(2*i)+2];
+            for (byte i = 0; i < data.Length / 2; i++)
+            {
+                message[(2*i)+1] = (byte) data[i, 0];
+                message[(2*i)+2] = (byte) data[i, 1];
+                // Console.WriteLine(i + ": " + "[" + message[(2*i)+1] + "," + message[(2*i)+2] + "]");
+                chkSum += message[(2*i)+1];
+            }
+        }
+        else if (request == REQUEST_REFILL)
+        {
+            message[1] = (byte) data[0, 0];
+            chkSum += message[1];
         }
         message[data.Length+1] = chkSum;
 
@@ -152,11 +161,11 @@ public static class ArduinoCommunicator
 
     public static bool Refill(int containerId){
         //refill is of the form: (1, [containerId])
-        return SendRequest(1, new int[,]{{containerId}});
+        return SendRequest(REQUEST_REFILL, new int[,]{{containerId}});
     }
 
     public static bool Dispense(int[,] dispenseArray){
         //refill is of the form: (2, [num from container 0, num from container 1..., num from container 5])
-        return SendRequest(2, dispenseArray);
+        return SendRequest(REQUEST_DISPENSE, dispenseArray);
     }
 }

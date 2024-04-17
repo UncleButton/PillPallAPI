@@ -231,29 +231,34 @@ byte readData() {
 
   // Allocate <dataLength> bytes of memory for the data, then read the data in and sum it
   Serial.readBytes(*data, dataLength);
-  for (int i = 0; i < dataLength / 2; i++)
+  if (request == REQUEST_DISPENSE)
   {
-    sum += data[i][0];
-    sum += data[i][1];
-    #ifdef DEBUG
-    Serial.print(data[i][0]);
-    Serial.print(",");
-    Serial.println(data[i][1]);
-    #endif
+    for (int i = 0; i < dataLength / 2; i++)
+    {
+      sum += data[i][0];
+      sum += data[i][1];
+      #ifdef DEBUG
+      Serial.print(data[i][0]);
+      Serial.print(",");
+      Serial.println(data[i][1]);
+      #endif
+    // sum += data[0][0];
+    // sum += data[0][1];
+    // sum += data[1][0];
+    // sum += data[1][1];
+    // sum += data[2][0];
+    // sum += data[2][1];
+    // sum += data[3][0];
+    // sum += data[3][1];
+    // sum += data[4][0];
+    // sum += data[4][1];
+    // sum += data[5][1];
+    // sum += data[5][1];
+    }
   }
+  else if (request == REQUEST_REFILL)
+    sum += data[0][0];
   // Serial.println(sum);
-  // sum += data[0][0];
-  // sum += data[0][1];
-  // sum += data[1][0];
-  // sum += data[1][1];
-  // sum += data[2][0];
-  // sum += data[2][1];
-  // sum += data[3][0];
-  // sum += data[3][1];
-  // sum += data[4][0];
-  // sum += data[4][1];
-  // sum += data[5][1];
-  // sum += data[5][1];
 
   // Read in the checkSum and see if it matches the sum of the data given
   byte checkSum = 0;
@@ -270,7 +275,7 @@ byte readData() {
     else if (request == REQUEST_REFILL)
     {
       //  Set the next state to rotating the cartridge being refilled
-      cartridgeBeingRefilled = data[0];
+      cartridgeBeingRefilled = data[0][0];
       nextState = STATE_ROTATE_REFILL;
     }
     else
