@@ -82,6 +82,7 @@ public static class ArduinoCommunicator
                 message[(2*i)+2] = (byte) data[i, 1];
                 // Console.WriteLine(i + ": " + "[" + message[(2*i)+1] + "," + message[(2*i)+2] + "]");
                 chkSum += message[(2*i)+1];
+                chkSum += message[(2*i)+2];
             }
         }
         else if (request == REQUEST_REFILL)
@@ -89,6 +90,7 @@ public static class ArduinoCommunicator
             message[1] = (byte) data[0, 0];
             chkSum += message[1];
         }
+        // Console.WriteLine("ChkSum: " + chkSum);
         message[data.Length+1] = chkSum;
 
         // We will only allow for 5 attempts to transfer the data correctly. If we fail 5 times, something must be wrong with either the data or
