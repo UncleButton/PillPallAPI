@@ -57,7 +57,8 @@ public class DispenseController : ControllerBase
 
         //thank you justin.  Send request to arduino communicator
         try {
-            ArduinoCommunicator.Dispense(dispenseArray);
+            bool success = ArduinoCommunicator.Dispense(dispenseArray);
+            if (!success) return BadRequest();
         }
         catch(Exception e) {
             return BadRequest("Failed to communicate with device. " + e.Message);
@@ -122,7 +123,8 @@ public class DispenseController : ControllerBase
 
         //thank you justin.  Send request to arduino communicator
         try {
-            ArduinoCommunicator.Dispense(dispenseArray);
+            bool success = ArduinoCommunicator.Dispense(dispenseArray);
+            if (!success) return BadRequest();
         }
         catch(Exception e) {
             throw new Exception("Failed to communicate with device. " + e.Message);
@@ -173,7 +175,8 @@ public class DispenseController : ControllerBase
     [Route("dispense")]
     public IActionResult DispenseMedication([FromBody] int[,] dispenseList)
     {
-        ArduinoCommunicator.Dispense(dispenseList);
+        bool success =ArduinoCommunicator.Dispense(dispenseList);
+            if (!success) return BadRequest();
         return Ok();
     }
 
