@@ -52,7 +52,7 @@ public class DispenseController : ControllerBase
         //fill dispense array with the number of each pill requested
         foreach(DispenseContainer containerToDispense in containersToDispense){
             dispenseArray[containerToDispense.containerId, 0] = containerToDispense.numPills;
-            dispenseArray[containerToDispense.containerId, 0] = containerToDispense.isLarge;
+            dispenseArray[containerToDispense.containerId, 1] = containerToDispense.isLarge;
         }
 
         //thank you justin.  Send request to arduino communicator

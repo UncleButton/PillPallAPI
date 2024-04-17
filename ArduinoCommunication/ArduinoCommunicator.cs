@@ -48,7 +48,7 @@ public static class ArduinoCommunicator
     }
 
     // Takes in the request type and the data being sent and sends them as a message to the Arduino
-    public static bool SendRequest(int request, int[] data)
+    public static bool SendRequest(int request, int[,] data)
     {
         num++;
         Console.WriteLine("Dispense: " + num);
@@ -72,10 +72,13 @@ public static class ArduinoCommunicator
 
         // The checksum is a method used to ensure valid data is received on the Arduino.
         byte chkSum = message[0];
-        for (byte i = 0; i < data.Length; i++)
+        for (byte i = 0; i < data.Length / 2; i++)
         {
-            message[i+1] = (byte) data[i];
-            chkSum += message[i+1];
+            message[(2*i)+1] = (byte) data[i, 0];
+            message[(2*i)+2] = (byte) data[i, 1];
+            // Console.WriteLine(i + ": " + "[" + message[(2*i)+1] + "," + message[(2*i)+2] + "]");
+            chkSum += message[(2*i)+1];
+            chkSum += message[(2*i)+2];
         }
         message[data.Length+1] = chkSum;
 
@@ -96,7 +99,8 @@ public static class ArduinoCommunicator
                 // Write the array to the arduino via the serial port. "message" is the array of bytes, 0 is the offset (leave at 0), and
                 // message.Length indicates how many bytes to send.
                 sp.Write(message, 0, message.Length);
-                
+                // while (true)
+                //     Console.WriteLine(sp.ReadLine());
                 // Now wait on the success response from the Arduino
                 readResult = sp.ReadByte();
 
@@ -148,7 +152,7 @@ public static class ArduinoCommunicator
 
     public static bool Refill(int containerId){
         //refill is of the form: (1, [containerId])
-        return SendRequest(1, new int[]{containerId});
+        return SendRequest(1, new int[,]{{containerId}});
     }
 
     public static bool Dispense(int[,] dispenseArray){

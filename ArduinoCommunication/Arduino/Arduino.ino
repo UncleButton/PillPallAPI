@@ -11,7 +11,12 @@
 
 // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
 const byte INFO_REQUEST_OFFSET = 6;
-const byte EXPECTED_DISPENSE_LENGTH = 6;
+const byte EXPECTED_NUMBER_OF_MEDICATIONS = 6;
+const byte EXPECTED_DISPENSE_LENGTH = EXPECTED_NUMBER_OF_MEDICATIONS * 2;   // We will receive a 2D array with pairs of [numberOfPillsFromCartridge, small/large]
+const byte DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE = 0;
+const byte DATA_ELEMENT_PILL_SIZE = 1;
+const byte SMALL_PILL = 0;
+const byte LARGE_PILL = 1;
 
 // The request types, either refill (1) or dispense (2)
 const byte REQUEST_REFILL = 1;
@@ -41,13 +46,13 @@ const byte STATE_DONE = 20;
 const byte STATE_FAIL = 30;
 
 // Pins on the arduino and what they're physically connected to
-const byte PIN_NEMA_DIRECTION = 3;
-const byte PIN_NEMA_STEP = 4;
-const byte PIN_VACUUM = 11;
+const byte PIN_NEMA_DIRECTION = 2;
+const byte PIN_NEMA_STEP = 3;
+const byte PIN_VACUUM = 4;
+const byte PIN_ACTUATOR_DOWN = 5;
 const byte PIN_ACTUATOR_UP = 6;
-const byte PIN_ACTUATOR_DOWN = 7;
-const byte PIN_INFRARED_PILL = 9;
-const byte PIN_INFRARED_ZERO = 12;
+const byte PIN_INFRARED_PILL = 7;
+const byte PIN_INFRARED_ZERO = 9;
 
 // These are specifically in relation to operation of the NEMA Stepper Motor, which spins the base that the cartridges are on
 const int DISPENSE_DELAY_TIME = 200;  //  Delay time needed between switching the nema on and off when dispensing
@@ -60,7 +65,7 @@ const int NEMA_STEPS_PER_REV = 200;     // Number of steps per revolution for th
 const int NEMA_DRIVER_RESOLUTION = 16;  // Microstep that the motor driver is set to. Now a full revolution will take 200 * 16 steps
 // NEMA_ACTUAL_STEPS_PER_REV is the steps per rev when taking into consideration the gear ratios and the driver resolution
 const float NEMA_ACTUAL_STEPS_PER_REV = ((float)BIG_GEAR_TEETH / LITTLE_GEAR_TEETH) * NEMA_STEPS_PER_REV * NEMA_DRIVER_RESOLUTION;
-const float DISTANCE_BETWEEN_CARTRIDGES = NEMA_ACTUAL_STEPS_PER_REV / EXPECTED_DISPENSE_LENGTH;
+const float DISTANCE_BETWEEN_CARTRIDGES = NEMA_ACTUAL_STEPS_PER_REV / EXPECTED_NUMBER_OF_MEDICATIONS;
 const float HALF_DISTANCE_BETWEEN_CARTRIDGES = DISTANCE_BETWEEN_CARTRIDGES / 2;
 const int NEMA_HALF_REV_LOCATION = NEMA_ACTUAL_STEPS_PER_REV / 2;
 const int CARTRIDGE_LOCATIONS[] = { DISTANCE_BETWEEN_CARTRIDGES * 5, 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4 };
@@ -72,15 +77,16 @@ const int TOF_MIN = 6800;                  //  UPDATE LATER   changed from 4500.
 const int TOF_MAX = 10300;                //  UPDATE LATER    changed from 10400...10500
 const int TOF_OFFSET = 4350;              //  UPDATE LATER    changed from 4500
 const int TOF_MAX_THRESHOLD = 8500;       //  changed from 9500...9800
+const int MAX_VACUUM_DELAY = 1500;
 // already used 4627 for min
 
 const byte DISPENSE_MAX_FAIL = 3;
 const byte TOF_INIT_MAX_FAIL = 5;
 
-byte *data;                           // The array that will hold the data, allocated when it is read in
+byte data[EXPECTED_NUMBER_OF_MEDICATIONS][2];                           // The array that will hold the data, allocated when it is read in
 byte request = 0;                     // The type of request received fromt the pi
 byte dataLength = 0;                  // Data length, used to allocate the data array
-byte numberOfCartridges = 0;                  // The number of cartridges, how many cartridges are in the machine
+byte numberOfCartridges = 0;          // The number of cartridges, how many cartridges are in the machine
 byte currentState = STATE_READ_DATA;  // Current state of the machine, cannot be modified outside of "loop." Start at read data state
 byte nextState = STATE_READ_DATA;     // The next state in the machine, CAN be modified outside of "loop"
 
@@ -95,6 +101,7 @@ int timeToMoveActuator = 0;     // Time in milliseconds for the hose to be lower
 
 VL53L1X TOFsensor;
 int timeOfFlightValue = 0;
+int vacuum_delay = MAX_VACUUM_DELAY;
 
 int dispenseFailCount = 0;
 
@@ -136,13 +143,12 @@ void setup() {
   }
   TOFsensor.setDistanceMode(VL53L1X::Short);
   TOFsensor.setMeasurementTimingBudget(50000);  // 50 ms, adjust as needed
+  
+  // resetPlate();
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
   delay(4000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
-  // digitalWrite(PIN_VACUUM, HIGH);
-  // delay(15000);
-  // digitalWrite(PIN_VACUUM, LOW);
-  // resetPlate();
+
 
 
   // spinPlate(400, 300);
@@ -224,10 +230,30 @@ byte readData() {
   byte sum = info;
 
   // Allocate <dataLength> bytes of memory for the data, then read the data in and sum it
-  data = malloc(dataLength);
-  Serial.readBytes(data, dataLength);
-  for (int i = 0; i < dataLength; i++)
-    sum += data[i];
+  Serial.readBytes(*data, dataLength);
+  for (int i = 0; i < dataLength / 2; i++)
+  {
+    sum += data[i][0];
+    sum += data[i][1];
+    #ifdef DEBUG
+    Serial.print(data[i][0]);
+    Serial.print(",");
+    Serial.println(data[i][1]);
+    #endif
+  }
+  // Serial.println(sum);
+  // sum += data[0][0];
+  // sum += data[0][1];
+  // sum += data[1][0];
+  // sum += data[1][1];
+  // sum += data[2][0];
+  // sum += data[2][1];
+  // sum += data[3][0];
+  // sum += data[3][1];
+  // sum += data[4][0];
+  // sum += data[4][1];
+  // sum += data[5][1];
+  // sum += data[5][1];
 
   // Read in the checkSum and see if it matches the sum of the data given
   byte checkSum = 0;
@@ -238,7 +264,7 @@ byte readData() {
     if (request == REQUEST_DISPENSE && dataLength == EXPECTED_DISPENSE_LENGTH)
     {
       //  Set the next state to be selecting the cartridge
-      numberOfCartridges = dataLength;
+      numberOfCartridges = dataLength / 2;
       nextState = STATE_SELECT_CARTRIDGE;
     }
     else if (request == REQUEST_REFILL)
@@ -275,7 +301,7 @@ void resetPlate() {
   if (stepsTaken >= NEMA_ACTUAL_STEPS_PER_REV) {
     nextState = STATE_FAIL;
   }
-  // for (int x = 0; x < 350; x++) {
+  // for (int x = 0; x < 325; x++) {
   //   digitalWrite(PIN_NEMA_STEP, HIGH);
   //   delayMicroseconds(RESET_DELAY_TIME);
   //   digitalWrite(PIN_NEMA_STEP, LOW);
@@ -330,7 +356,7 @@ void spinPlate(int nextLocation, int delayTime) {
 
 //  This function loops through the data array to determine which cartridge to rotate to next.
 void selectCartridge() {
-  while (currentCartridge < numberOfCartridges && data[currentCartridge] == 0)
+  while (currentCartridge < numberOfCartridges && data[currentCartridge][DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE] == 0)
     currentCartridge++;
   if (currentCartridge < numberOfCartridges)
     // Determine the next state based off which type of request was received
@@ -365,26 +391,31 @@ void shakeCartridge()
 }
 
 void raiseHose() {
-  digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  delay(timeToMoveActuator + 1500);
-  digitalWrite(PIN_ACTUATOR_UP, LOW);
+  if (data[currentCartridge][DATA_ELEMENT_PILL_SIZE] == SMALL_PILL)
+  {
+    digitalWrite(PIN_ACTUATOR_UP, HIGH);
+    delay(timeToMoveActuator - vacuum_delay);
+    digitalWrite(PIN_VACUUM, LOW);
+    delay(vacuum_delay);
+    digitalWrite(PIN_VACUUM, HIGH);
+    delay(vacuum_delay);
+    digitalWrite(PIN_ACTUATOR_UP, LOW);
+  }
+  else if (data[currentCartridge][DATA_ELEMENT_PILL_SIZE] == LARGE_PILL)
+  {
+    digitalWrite(PIN_ACTUATOR_UP, HIGH);
+    delay(timeToMoveActuator + MAX_VACUUM_DELAY);
+    digitalWrite(PIN_ACTUATOR_UP, LOW);
+  }
   nextState = STATE_CHECK_PILL;
-  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  // delay(timeToMoveActuator - 1500);
-  // digitalWrite(PIN_VACUUM, LOW);
-  // delay(1500);
-  // digitalWrite(PIN_VACUUM, HIGH);
-  // delay(1500);
-  // digitalWrite(PIN_ACTUATOR_UP, LOW);
-  // nextState = STATE_CHECK_PILL;
 }
 
 void dropPill() {
   spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + HALF_DISTANCE_BETWEEN_CARTRIDGES, DISPENSE_DELAY_TIME);
   digitalWrite(PIN_VACUUM, LOW);
   delay(4000);
-  data[currentCartridge]--;
-  if (data[currentCartridge] == 0)
+  data[currentCartridge][DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE]--;
+  if (data[currentCartridge][DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE] == 0)
     nextState = STATE_SELECT_CARTRIDGE;
   else
     nextState = STATE_ROTATE_TO_VACUUM;
@@ -485,17 +516,16 @@ void averageMethod()
 
 void tryAgain()
 {
-  // if (dispenseFailCount > 0)
-  // {
-  //   if ((timeOfFlightValue + VERTICAL_OFFSET) <= TOF_MAX)
-  //     timeToMoveActuator = timeOfFlightValue + VERTICAL_OFFSET - TOF_OFFSET;
-  //   else
-  //     timeToMoveActuator = TOF_MAX - TOF_OFFSET;
   if (dispenseFailCount == 1)
     spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] - DISPENSE_OFFSET, DISPENSE_DELAY_TIME);
   else if (dispenseFailCount == 2)
+  {
     spinPlate(CARTRIDGE_LOCATIONS[currentCartridge], DISPENSE_DELAY_TIME);
-  // }
+    if ((timeOfFlightValue + VERTICAL_OFFSET) <= TOF_MAX)
+      timeToMoveActuator += VERTICAL_OFFSET;
+    else
+      timeToMoveActuator = TOF_MAX - TOF_OFFSET;
+  }
 }
 
 // Arduino runs in an infinite loop through this function, which is where the main state machine of this device will be
