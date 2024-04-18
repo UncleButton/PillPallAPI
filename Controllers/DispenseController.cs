@@ -180,8 +180,8 @@ public class DispenseController : ControllerBase
     [Route("dispense")]
     public IActionResult DispenseMedication([FromBody] int[,] dispenseList)
     {
-        bool success =ArduinoCommunicator.Dispense(dispenseList);
-            if (!success) return BadRequest();
+        var success =ArduinoCommunicator.Dispense(dispenseList);
+            if (!success.Item1) return BadRequest();
         return Ok();
     }
 

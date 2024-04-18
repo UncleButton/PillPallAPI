@@ -23,11 +23,13 @@ const byte REQUEST_REFILL = 1;
 const byte REQUEST_DISPENSE = 2;
 
 const byte RECEIVED_VALID_MESSAGE = 0;   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
-const byte RECEIVED_INVALID_MESSAGE = 1;      // If the message was a fail, we return a 1. Don't ask why it's a char, it just is
-const byte HEARTBEAT = 2;           // Heartbeat, still communicating with Arduino correctly
-const byte FINISHED_SUCCESS = 3;    // Finished dispensing or refilling correctly
-const byte FINISHED_FAIL = 4;       // Did not successfully dispense or refill
-const byte TOF_NOT_INITIALIZED = 5; // TOF sensor had error while trying to initialize
+const byte RECEIVED_INVALID_MESSAGE = 1;   // If the message was a fail, we return a 1. Don't ask why it's a char, it just is
+const byte TOF_NOT_INITIALIZED = 2;   // TOF sensor had error while trying to initialize
+const byte HEARTBEAT = 3;   // Heartbeat, still communicating with Arduino correctly
+const byte DISPENSE_SUCCESS = 4;    // Successfully dispensed a pill
+const byte DISPENSE_FAIL = 5;   // Did not successfully dispense
+const byte FINISHED_SUCCESS = 6;   // Finished dispensing or refilling correctly
+const byte FINISHED_FAIL = 7;   // Finished dispensing or refilling correctly
 
 const int ACTUATOR_SPEED_CM_PER_SECOND = 1; // Found this value on the actuator's Amazon page (should have checked earlier...duh)
 
@@ -139,81 +141,15 @@ void setup() {
     Serial.println("Failed to detect and initialize TOF sensor!");
     #endif
     while (1)
-      Serial.print(TOF_NOT_INITIALIZED);
+      Serial.write(TOF_NOT_INITIALIZED);
   }
   TOFsensor.setDistanceMode(VL53L1X::Short);
   TOFsensor.setMeasurementTimingBudget(50000);  // 50 ms, adjust as needed
-  
-  // resetPlate();
+
+  resetPlate();
   digitalWrite(PIN_ACTUATOR_UP, HIGH);
   delay(4000);
   digitalWrite(PIN_ACTUATOR_UP, LOW);
-
-
-
-  // spinPlate(400, 300);
-  // delay(300);                     // THIS EXTRA OFFSET FREAKIN WORKS
-  // spinPlate(100, 300);
-
-
-  // resetPlate();
-  // delay(300);
-  // spinPlate(-100, 300);
-  // TOFsensor.startContinuous(200);
-  // TOFsensor.read();
-  // for (int i = 0; i < 50; i++)
-  //   TOFsensor.read();
-  // float avg = 0;
-  // int count = 0;
-  // for (int i = 0; i < 100; i++)
-  // {
-  //   int val = TOFsensor.read();
-  //   if (val > 102)
-  //   {
-  //     avg += val;
-  //     count++;
-  //   }
-    // if (max == 104)
-    // {
-    //   Serial.print("stopped at: ");
-    //   Serial.println(nemaCurrentPos);
-    //   break;
-    // }
-  //   spinPlate(nemaCurrentPos + 3, 300);
-  //   delay(200);
-  // }
-  // Serial.print("Avg is ");
-  // Serial.println(avg / count);
-  // Serial.print(max);
-    // readTimeOfFlight();
-  // currentState = nextState = STATE_DONE;
-
-  // digitalWrite(PIN_ACTUATOR_DOWN, HIGH);
-  // delay(TOF_MAX - TOF_OFFSET);
-  // digitalWrite(PIN_ACTUATOR_DOWN, LOW);
-  // digitalWrite(PIN_VACUUM, HIGH);
-  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  // delay(8000);
-  // digitalWrite(PIN_ACTUATOR_UP, LOW);
-  // digitalWrite(PIN_VACUUM, LOW);
-  // while (1)
-  // {
-  //   Serial.print(TOFsensor.read());
-  //   delay(100);
-  // }
-
-  // delay(1500);
-  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  // delay(TOF_MAX - TOF_OFFSET + 1500);
-  // digitalWrite(PIN_ACTUATOR_UP, LOW);
-  // digitalWrite(PIN_VACUUM, LOW);
-  // delay(10000);
-  // digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  // delay(TOF_MAX - TOF_OFFSET + 1500);
-  // digitalWrite(PIN_ACTUATOR_UP, LOW);
-  //   spinPlate(500, 100);
-  //   delay(400);
-  //   spinPlate(0, 100);
 }
 
 //  This reads in the data coming in on the serial port. It will determine what type of request is being made, allocate the appropriate amount of
@@ -420,6 +356,8 @@ void dropPill() {
   digitalWrite(PIN_VACUUM, LOW);
   delay(4000);
   data[currentCartridge][DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE]--;
+  Serial.write(DISPENSE_SUCCESS);
+  Serial.write(currentCartridge);
   if (data[currentCartridge][DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE] == 0)
     nextState = STATE_SELECT_CARTRIDGE;
   else
@@ -552,7 +490,7 @@ void loop() {
           byte success = readData();
 
           //  Send response back to pi, letting it know whether the data we got was valid
-          Serial.print(success);
+          Serial.write(success);
 
           //  Reset the plate so that cartidge 0 is underneath the ultrasonic sensor
           if (digitalRead(PIN_INFRARED_ZERO) && request == REQUEST_DISPENSE)
@@ -613,7 +551,9 @@ void loop() {
       }
       if (dispenseFailCount > 2)
       {
-        nextState = STATE_FAIL;
+        data[currentCartridge][0]--;
+        digitalWrite(PIN_VACUUM, LOW);
+        nextState = STATE_SELECT_CARTRIDGE;
         dispenseFailCount = 0;
       }
       break;
@@ -628,18 +568,18 @@ void loop() {
       }
     case STATE_DONE:
       {
-        Serial.print(FINISHED_SUCCESS);
+        Serial.write(FINISHED_SUCCESS);
         nextState = STATE_READ_DATA;
         break;
       }
     case STATE_FAIL:
     {
-      Serial.print(FINISHED_FAIL);
+      Serial.write(FINISHED_FAIL);
       nextState = STATE_READ_DATA;
       break;
     }
   }
   currentState = nextState;
   if (currentState != STATE_READ_DATA && currentState != STATE_DONE && currentState != STATE_FAIL)
-    Serial.print(HEARTBEAT);
+    Serial.write(HEARTBEAT);
 }
