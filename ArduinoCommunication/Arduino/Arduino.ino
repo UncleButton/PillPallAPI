@@ -107,6 +107,8 @@ int vacuum_delay = MAX_VACUUM_DELAY;
 
 int dispenseFailCount = 0;
 
+byte dispenseAttempts = 0;
+
 // Setup function, runs once when the Arduino first powers on, configuring pins and serial communication
 void setup() {
   delay(3000);         // The delay is needed here, otherwise the Arduino starts running code early
@@ -303,7 +305,24 @@ void selectCartridge() {
     // Determine the next state based off which type of request was received
     nextState = STATE_ROTATE_TO_VACUUM;
   else
-    nextState = STATE_DONE;
+  {
+    if (dispenseAttempts > 0)
+    {
+      dispenseAttempts = 0;
+      nextState = STATE_DONE;
+      for (int i = 0; i < numberOfCartridges; i++)
+      {
+        if (data[i][DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE] != 0)
+          nextState = STATE_FAIL;
+      }
+    }
+    else
+    {
+      currentCartridge = 0;
+      dispenseAttempts++;
+      nextState = STATE_SELECT_CARTRIDGE;
+    }
+  }
 }
 
 void lowerHose() {
@@ -541,8 +560,16 @@ void loop() {
       {
         dispenseFailCount++;
         digitalWrite(PIN_VACUUM, LOW);
-        tryAgain();
-        nextState = STATE_LOWER_HOSE;
+        if (dispenseAttempts == 0)
+        {
+          tryAgain();
+          nextState = STATE_LOWER_HOSE;
+        }
+        else
+        {
+          nextState = STATE_SELECT_CARTRIDGE;
+          currentCartridge++;
+        }
       }
       else
       {
@@ -551,7 +578,7 @@ void loop() {
       }
       if (dispenseFailCount > 2)
       {
-        data[currentCartridge][0]--;
+        currentCartridge++;
         digitalWrite(PIN_VACUUM, LOW);
         nextState = STATE_SELECT_CARTRIDGE;
         dispenseFailCount = 0;
