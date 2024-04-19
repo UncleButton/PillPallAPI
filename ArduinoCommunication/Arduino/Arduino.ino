@@ -22,14 +22,14 @@ const byte LARGE_PILL = 1;
 const byte REQUEST_REFILL = 1;
 const byte REQUEST_DISPENSE = 2;
 
-const byte RECEIVED_VALID_MESSAGE = 0;   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
-const byte RECEIVED_INVALID_MESSAGE = 1;   // If the message was a fail, we return a 1. Don't ask why it's a char, it just is
-const byte TOF_NOT_INITIALIZED = 2;   // TOF sensor had error while trying to initialize
-const byte HEARTBEAT = 3;   // Heartbeat, still communicating with Arduino correctly
-const byte DISPENSE_SUCCESS = 4;    // Successfully dispensed a pill
-const byte DISPENSE_FAIL = 5;   // Did not successfully dispense
-const byte FINISHED_SUCCESS = 6;   // Finished dispensing or refilling correctly
-const byte FINISHED_FAIL = 7;   // Finished dispensing or refilling correctly
+const byte RECEIVED_VALID_MESSAGE = 6;   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
+const byte RECEIVED_INVALID_MESSAGE = 7;   // If the message was a fail, we return a 1. Don't ask why it's a char, it just is
+const byte TOF_NOT_INITIALIZED = 8;   // TOF sensor had error while trying to initialize
+const byte HEARTBEAT = 9;   // Heartbeat, still communicating with Arduino correctly
+const byte DISPENSE_SUCCESS = 10;    // Successfully dispensed a pill
+const byte DISPENSE_FAIL = 11;   // Did not successfully dispense
+const byte FINISHED_SUCCESS = 12;   // Finished dispensing or refilling correctly
+const byte FINISHED_FAIL = 13;   // Finished dispensing or refilling correctly
 
 const int ACTUATOR_SPEED_CM_PER_SECOND = 1; // Found this value on the actuator's Amazon page (should have checked earlier...duh)
 
