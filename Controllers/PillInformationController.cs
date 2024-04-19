@@ -136,6 +136,7 @@ public class PillInformationController : ControllerBase
             ArduinoCommunicator.Refill(refillObject.ContainerId);
         }
         catch(Exception e){
+            Console.WriteLine(e);
             return BadRequest("Failed to communicate with machine. " + e.Message);
         }
 

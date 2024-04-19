@@ -69,7 +69,7 @@ public static class ArduinoCommunicator
 
         //  Response array will initially hold the number of pills needed to be dispensed from each cartridge. As each pill is dispensed, the
         //  corresponding number here will be decremented. If all are decremented to 0, the entire dispense was a success
-        int[] response = new int[data.Length / 2];
+        int[] response = new int[6];
 
         // The checksum is a method used to ensure valid data is received on the Arduino.
         byte chkSum = message[0];
