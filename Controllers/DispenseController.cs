@@ -12,8 +12,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PillPallAPI.ArduinoCommunication;
-using PillPallAPI.Migrations;
-using SQLitePCL;
 
 namespace PillPallAPI.Controllers;
 
@@ -59,7 +57,7 @@ public class DispenseController : ControllerBase
         //thank you justin.  Send request to arduino communicator
         try {
             (bool, int[]) response = ArduinoCommunicator.Dispense(dispenseArray);
-            if (!response.Item1) return BadRequest("test"+BuildFailedDispenseResponse(response.Item2));
+            if (!response.Item1) return BadRequest("test"+BuildFailedDispenseResponse(response.Item2, dispenseArray));
         }
         catch(Exception e) {
             return BadRequest("Failed to communicate with device. " + e.Message);
@@ -128,7 +126,7 @@ public class DispenseController : ControllerBase
         try
         {
             (bool, int[]) response = ArduinoCommunicator.Dispense(dispenseArray);
-            if (!response.Item1) return BadRequest(await BuildFailedDispenseResponse(response.Item2));
+            if (!response.Item1) return BadRequest(await BuildFailedDispenseResponse(response.Item2, dispenseArray));
         }
         catch (Exception e)
         {
@@ -200,19 +198,22 @@ public class DispenseController : ControllerBase
         med.NumPills -= numPills;
     }
 
-    private async Task<string> BuildFailedDispenseResponse(int[] errorList){
+    private async Task<string> BuildFailedDispenseResponse(int[] errorList, int[,] originalList){
 
         var responseText = "The following medications failed to dispense: ";
 
         for(var containerId = 0; containerId<6; containerId++){
-            if(errorList[containerId] == 0) continue; //skip if none failed to dispense
+            var updateNum = originalList[containerId, 0] - errorList[containerId];
           
             var medId = _dbContext.ContainerMedMaps.Where(entity => entity.ContainerId == containerId).OrderByDescending(entity => entity.Id).First().MedId;
             var med = await _dbContext.Medications.Where(entity => entity.Id == medId).FirstAsync();//use medId to get med
 
+            updateMedNumPills(medId, updateNum);
+
+            if(errorList[containerId] == 0) continue;//skip if none failed to dispense
             responseText += errorList[containerId] + " " + med.Name + ", ";
         }
-        
+        _dbContext.SaveChanges();
         return responseText[..^2];
     }
     
