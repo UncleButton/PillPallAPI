@@ -72,7 +72,8 @@ const float HALF_DISTANCE_BETWEEN_CARTRIDGES = DISTANCE_BETWEEN_CARTRIDGES / 2;
 const int NEMA_HALF_REV_LOCATION = NEMA_ACTUAL_STEPS_PER_REV / 2;
 const int CARTRIDGE_LOCATIONS[] = { DISTANCE_BETWEEN_CARTRIDGES * 5, 0, DISTANCE_BETWEEN_CARTRIDGES, DISTANCE_BETWEEN_CARTRIDGES * 2, DISTANCE_BETWEEN_CARTRIDGES * 3, DISTANCE_BETWEEN_CARTRIDGES * 4 };
 const int REFILL_LOCATIONS[] = { CARTRIDGE_LOCATIONS[5], CARTRIDGE_LOCATIONS[0], CARTRIDGE_LOCATIONS[1], CARTRIDGE_LOCATIONS[2], CARTRIDGE_LOCATIONS[3], CARTRIDGE_LOCATIONS[4] };
-const int DISPENSE_OFFSET = 100;
+// const int DISPENSE_OFFSET = 100;
+const int DISPENSE_OFFSET = 115;
 const int VERTICAL_OFFSET = 500;
 
 const int TOF_MIN = 6800;                  //  UPDATE LATER   changed from 4500....6350
@@ -125,6 +126,15 @@ void setup() {
   pinMode(PIN_INFRARED_ZERO, INPUT);
   pinMode(PIN_INFRARED_PILL, INPUT);
 
+  initializeToF();
+  resetPlate();
+  digitalWrite(PIN_ACTUATOR_UP, HIGH);
+  delay(4000);
+  digitalWrite(PIN_ACTUATOR_UP, LOW);
+}
+
+void initializeToF()
+{
   //  Initialize ToF
   Wire.begin();
   Wire.setClock(400000); // use 400 kHz I2C
@@ -142,16 +152,14 @@ void setup() {
     #ifdef DEBUG
     Serial.println("Failed to detect and initialize TOF sensor!");
     #endif
-    while (1)
+    while (!TOFsensor.init())
+    {
       Serial.write(TOF_NOT_INITIALIZED);
+      delay(100);
+    }
   }
   TOFsensor.setDistanceMode(VL53L1X::Short);
   TOFsensor.setMeasurementTimingBudget(50000);  // 50 ms, adjust as needed
-
-  resetPlate();
-  digitalWrite(PIN_ACTUATOR_UP, HIGH);
-  delay(4000);
-  digitalWrite(PIN_ACTUATOR_UP, LOW);
 }
 
 //  This reads in the data coming in on the serial port. It will determine what type of request is being made, allocate the appropriate amount of
@@ -373,7 +381,8 @@ void raiseHose() {
 void dropPill() {
   spinPlate(CARTRIDGE_LOCATIONS[currentCartridge] + HALF_DISTANCE_BETWEEN_CARTRIDGES, DISPENSE_DELAY_TIME);
   digitalWrite(PIN_VACUUM, LOW);
-  delay(4000);
+  while (!digitalRead(PIN_INFRARED_PILL)) ;
+  delay(100);
   data[currentCartridge][DATA_ELEMENT_NUMBER_PILLS_TO_DISPENSE]--;
   Serial.write(DISPENSE_SUCCESS);
   Serial.write(currentCartridge);
