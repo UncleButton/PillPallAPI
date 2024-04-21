@@ -57,7 +57,7 @@ const byte PIN_INFRARED_PILL = 7;
 const byte PIN_INFRARED_ZERO = 9;
 
 // These are specifically in relation to operation of the NEMA Stepper Motor, which spins the base that the cartridges are on
-const int DISPENSE_DELAY_TIME = 200;  //  Delay time needed between switching the nema on and off when dispensing
+const int DISPENSE_DELAY_TIME = 400;  //  Delay time needed between switching the nema on and off when dispensing
 const int RESET_DELAY_TIME = 400;     //  Delay time needed for resetting the plate to 0
 const byte NEMA_CLOCKWISE = 0;
 const byte NEMA_COUNTER_CLOCKWISE = 1;
@@ -399,9 +399,8 @@ void readTimeOfFlight()
   while ((timeOfFlightValue < TOF_MIN || timeOfFlightValue > TOF_MAX) && TOFValidReadAttempts < 2)
   {
     TOFsensor.startContinuous(50);  // 50 ms, adjust as needed
-    TOFsensor.read();  // Read a value to get rid of it
     for (int i = 20; i > 0; i--)  //  Throw out first 20 readings
-      TOFsensor.read();
+      TOFsensor.read(true);
     minimumMethod();
     #ifdef DEBUG
     Serial.print(timeOfFlightValue);
@@ -462,7 +461,7 @@ void minimumMethod()
     unsigned int min = 500000;
     for (int i = 0; i < 15; i++)
     {
-      int val = TOFsensor.read();
+      int val = TOFsensor.read(true);
       if (val < min)
         min = val;
     }
@@ -521,7 +520,7 @@ void loop() {
           Serial.write(success);
 
           //  Reset the plate so that cartidge 0 is underneath the ultrasonic sensor
-          if (digitalRead(PIN_INFRARED_ZERO) && request == REQUEST_DISPENSE)
+          if (digitalRead(PIN_INFRARED_ZERO))
             resetPlate();
         }
         break;
