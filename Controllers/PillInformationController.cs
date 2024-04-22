@@ -132,8 +132,9 @@ public class PillInformationController : ControllerBase
     {
         //move cartrige to opening
         //thank you justin.  Send request to arduino communicator (fill/refill conatinerNotInUse)
+        var containerId = await _dbContext.ContainerMedMaps.Where(entity => entity.medId == refillObject.medicationId).OrderByDescending(entity => entity.id).FirstAsync();
         try {
-            ArduinoCommunicator.Refill(refillObject.ContainerId);
+            ArduinoCommunicator.Refill(containerId);
         }
         catch(Exception e){
             Console.WriteLine(e);
