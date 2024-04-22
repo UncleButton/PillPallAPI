@@ -152,5 +152,24 @@ public class PillInformationController : ControllerBase
         Console.WriteLine("Refilling container: " + refillObject.ContainerId);
         return Ok();
     }
-    
+
+    [HttpPost]
+    [Route("deleteMedication")]
+    public async Task<IActionResult> DeleteMedication([FromBody] Medication medication)
+    {     
+        //get reference to existing medication
+        var existingMed = _dbContext.Medications.Where(entity => entity.Id == medication.Id).FirstOrDefault();
+
+        //return bad request if no such medication was found
+        if(existingMed == null)
+            return BadRequest();
+
+        //remove medication
+        existingMed.NumPills = 0;
+
+        //save
+        await _dbContext.SaveChangesAsync();
+
+        return Ok();
+    }  
 }

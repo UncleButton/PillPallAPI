@@ -131,7 +131,7 @@ public class ScheduleController : ControllerBase
             return BadRequest();
 
         //remove schedule
-        _dbContext.Remove(existingSchedule);
+        existingSchedule.Days = "";
 
         //save
         await _dbContext.SaveChangesAsync();
