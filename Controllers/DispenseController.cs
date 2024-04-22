@@ -12,7 +12,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PillPallAPI.ArduinoCommunication;
-using SQLitePCL;
 
 namespace PillPallAPI.Controllers;
 
@@ -57,8 +56,8 @@ public class DispenseController : ControllerBase
 
         //thank you justin.  Send request to arduino communicator
         try {
-            bool success = ArduinoCommunicator.Dispense(dispenseArray);
-            if (!success) return BadRequest();
+            (bool, int[]) response = ArduinoCommunicator.Dispense(dispenseArray);
+            if (!response.Item1) return BadRequest("test"+BuildFailedDispenseResponse(response.Item2, dispenseArray));
         }
         catch(Exception e) {
             return BadRequest("Failed to communicate with device. " + e.Message);
@@ -93,23 +92,25 @@ public class DispenseController : ControllerBase
     /// <returns></returns>
     [HttpPost]
     [Route("dispenseCustom")]
-    public IActionResult DispenseCustom([FromBody] ScheduleMed[] scheduleMeds)
+    public async Task<IActionResult> DispenseCustom([FromBody] ScheduleMed[] scheduleMeds)
     {
         //initialize dispense array with 0s
-        var dispenseArray = new int[,]{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+        var dispenseArray = new int[,] { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } };
 
         //fill dispense array with the number of each pill requested
-        foreach(ScheduleMed scheduleMed in scheduleMeds){
+        foreach (ScheduleMed scheduleMed in scheduleMeds)
+        {
             var container = _dbContext.ContainerMedMaps.Where(entity => entity.MedId == scheduleMed.Medication!.Id).FirstOrDefault();
 
-            if(container == null)
+            if (container == null)
                 return BadRequest("Encountered a problem mapping the medication to the container.");
 
-            dispenseArray[container.ContainerId, 0] = scheduleMed.NumPills; 
-            dispenseArray[container.ContainerId, 1] = scheduleMed.Medication!.isLarge; 
+            dispenseArray[container.ContainerId, 0] = scheduleMed.NumPills;
+            dispenseArray[container.ContainerId, 1] = scheduleMed.Medication!.isLarge;
 
             //add dispense log
-            var dispenseLog = new DispenseLog{
+            var dispenseLog = new DispenseLog
+            {
                 MedId = scheduleMed.Medication?.Id,
                 NumPills = scheduleMed.NumPills,
                 Timestamp = DateTime.Now
@@ -118,15 +119,17 @@ public class DispenseController : ControllerBase
 
             //subtract pills from tracked numPills
             updateMedNumPills(scheduleMed.Medication!.Id, scheduleMed.NumPills);
-            Console.WriteLine("Dispensing Container: "+container.ContainerId);
+            Console.WriteLine("Dispensing Container: " + container.ContainerId);
         }
 
         //thank you justin.  Send request to arduino communicator
-        try {
-            bool success = ArduinoCommunicator.Dispense(dispenseArray);
-            if (!success) return BadRequest();
+        try
+        {
+            (bool, int[]) response = ArduinoCommunicator.Dispense(dispenseArray);
+            if (!response.Item1) return BadRequest(await BuildFailedDispenseResponse(response.Item2, dispenseArray));
         }
-        catch(Exception e) {
+        catch (Exception e)
+        {
             throw new Exception("Failed to communicate with device. " + e.Message);
         }
 
@@ -175,8 +178,8 @@ public class DispenseController : ControllerBase
     [Route("dispense")]
     public IActionResult DispenseMedication([FromBody] int[,] dispenseList)
     {
-        bool success =ArduinoCommunicator.Dispense(dispenseList);
-            if (!success) return BadRequest();
+        var success =ArduinoCommunicator.Dispense(dispenseList);
+            if (!success.Item1) return BadRequest();
         return Ok();
     }
 
@@ -193,6 +196,25 @@ public class DispenseController : ControllerBase
     private void updateMedNumPills(int medId, int numPills){
         var med = _dbContext.Medications.Where(entity => entity.Id == medId).First();
         med.NumPills -= numPills;
+    }
+
+    private async Task<string> BuildFailedDispenseResponse(int[] errorList, int[,] originalList){
+
+        var responseText = "The following medications failed to dispense: ";
+
+        for(var containerId = 0; containerId<6; containerId++){
+            var updateNum = originalList[containerId, 0] - errorList[containerId];
+          
+            var medId = _dbContext.ContainerMedMaps.Where(entity => entity.ContainerId == containerId).OrderByDescending(entity => entity.Id).First().MedId;
+            var med = await _dbContext.Medications.Where(entity => entity.Id == medId).FirstAsync();//use medId to get med
+
+            updateMedNumPills(medId, updateNum);
+
+            if(errorList[containerId] == 0) continue;//skip if none failed to dispense
+            responseText += errorList[containerId] + " " + med.Name + ", ";
+        }
+        _dbContext.SaveChanges();
+        return responseText[..^2];
     }
     
 }

@@ -16,12 +16,14 @@ public static class ArduinoCommunicator
     const byte REQUEST_DISPENSE = 2;
     const byte REQUEST_OFFSET = 6;  // The two-bit request needs to be shifted to bits 6 and 7 of the first byte in the message
     const byte MAX_TRANSFER_ATTEMPTS = 5;   // MAX number of times we try to send the data before determining some failure
-    const char RECEIVED_VALID_MESSAGE = '0';   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
-    const char RECEIVED_INVALID_MESSAGE = '1';   // If the message was a fail, we return a 1. Don't ask why it's a char, it just is
-    const char HEARTBEAT = '2';   // Heartbeat, still communicating with Arduino correctly
-    const char FINISHED_SUCCESS = '3';   // Finished dispensing or refilling correctly
-    const char FINISHED_FAIL = '4';   // Did not successfully dispense or refill
-    const char TOF_NOT_INITIALIZED = '5';   // TOF sensor had error while trying to initialize
+    const byte RECEIVED_VALID_MESSAGE = 6;   // If the message was a success, we return a 0. Don't ask why it's a char, it just is
+    const byte RECEIVED_INVALID_MESSAGE = 7;   // If the message was a fail, we return a 1. Don't ask why it's a char, it just is
+    const byte TOF_NOT_INITIALIZED = 8;   // TOF sensor had error while trying to initialize
+    const byte HEARTBEAT = 9;   // Heartbeat, still communicating with Arduino correctly
+    const byte DISPENSE_SUCCESS = 10;    // Successfully dispensed a pill
+    const byte DISPENSE_FAIL = 11;   // Did not successfully dispense
+    const byte FINISHED_SUCCESS = 12;   // Finished dispensing or refilling correctly
+    const byte FINISHED_FAIL = 13;   // Finished dispensing or refilling correctly
     const string PI_PORT_NAME = "/dev/ttyACM0";    // This is the port used for the serial communication, CHANGE FOR PI
     const string JUSTIN_PORT_NAME = "COM7";    // This is the port used for the serial communication, CHANGE FOR PI
     static int num = 0;
@@ -50,7 +52,7 @@ public static class ArduinoCommunicator
     }
 
     // Takes in the request type and the data being sent and sends them as a message to the Arduino
-    public static bool SendRequest(int request, int[,] data)
+    public static (bool, int[]) SendRequest(int request, int[,] data)
     {
         num++;
         Console.WriteLine("Dispense: " + num);
@@ -58,19 +60,16 @@ public static class ArduinoCommunicator
             OpenCommunication();
         }
 
-        sp.ReadTimeout = 5000;
-        if (sp.BytesToRead > 0 && sp.ReadByte() == TOF_NOT_INITIALIZED)
-        {
-            Console.WriteLine("Error when trying to initialize the Time of Flight sensor");
-            return false;
-        }
-        
         // Message array being sent to Arduino. Needs to be the length of data + 2 so the first byte can hold the request and the length of the
         // message, and the final byte holds the checksum.
         byte[] message = new byte[data.Length + 2];
 
         // bits 7:6 hold the two request bits, and the remaining bits hold the length of the data in bytes
         message[0] = (byte) ((request << REQUEST_OFFSET) + data.Length);
+
+        //  Response array will initially hold the number of pills needed to be dispensed from each cartridge. As each pill is dispensed, the
+        //  corresponding number here will be decremented. If all are decremented to 0, the entire dispense was a success
+        int[] response = new int[6];
 
         // The checksum is a method used to ensure valid data is received on the Arduino.
         byte chkSum = message[0];
@@ -80,6 +79,7 @@ public static class ArduinoCommunicator
             {
                 message[(2*i)+1] = (byte) data[i, 0];
                 message[(2*i)+2] = (byte) data[i, 1];
+                response[i] = data[i, 0];
                 // Console.WriteLine(i + ": " + "[" + message[(2*i)+1] + "," + message[(2*i)+2] + "]");
                 chkSum += message[(2*i)+1];
                 chkSum += message[(2*i)+2];
@@ -92,6 +92,13 @@ public static class ArduinoCommunicator
         }
         // Console.WriteLine("ChkSum: " + chkSum);
         message[data.Length+1] = chkSum;
+
+        sp.ReadTimeout = 5000;
+        if (sp.BytesToRead > 0 && sp.ReadByte() == TOF_NOT_INITIALIZED)
+        {
+            Console.WriteLine("Error when trying to initialize the Time of Flight sensor");
+            return (false, response);
+        }
 
         // We will only allow for 5 attempts to transfer the data correctly. If we fail 5 times, something must be wrong with either the data or
         // the communication line
@@ -137,36 +144,47 @@ public static class ArduinoCommunicator
                 do
                 {
                     readResult = sp.ReadByte();
+                    // Console.WriteLine("result is: " + readResult);
+                    if (readResult == DISPENSE_SUCCESS)
+                    {
+                        readResult = sp.ReadByte();
+                        // Console.WriteLine("result is: " + readResult);
+                        response[readResult]--;
+                        readResult = sp.ReadByte();
+                        // Console.WriteLine("result is: " + readResult);
+                    }
                 }
                 while (readResult == HEARTBEAT);
             }
             catch (Exception)
             {
                 Console.WriteLine("Timeout on Dispense/Refill");
-                return false;
+                return (false, response);
             }
 
             if (readResult == FINISHED_SUCCESS)
             {
                 Console.WriteLine("Successfully Dispensed/Refilled");
-                return true;
+                for (int i = 0; i < 6; i++)
+                    Console.Write(response[i] + " ");
+                return (true, response);
             }
             else
             {
                 Console.WriteLine("Unsuccessfully Dispensed/Refilled");
-                return false;
+                return (false, response);
             }   
         }
         Console.WriteLine("Unsuccessful message");
-        return false;
+        return (false, response);
     }
 
-    public static bool Refill(int containerId){
+    public static (bool, int[]) Refill(int containerId){
         //refill is of the form: (1, [containerId])
         return SendRequest(REQUEST_REFILL, new int[,]{{containerId}});
     }
 
-    public static bool Dispense(int[,] dispenseArray){
+    public static (bool, int[]) Dispense(int[,] dispenseArray){
         //refill is of the form: (2, [num from container 0, num from container 1..., num from container 5])
         return SendRequest(REQUEST_DISPENSE, dispenseArray);
     }
